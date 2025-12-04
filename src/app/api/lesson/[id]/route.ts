@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerLesson, getServerMaterial, getAdminDb } from '@/lib/firebase/admin';
+import {
+  getServerLesson,
+  getServerMaterials,
+  updateServerLesson,
+  deleteServerLesson,
+} from '@/lib/firebase/server';
 
 // GET: 수업 조회
 export async function GET(
@@ -17,22 +22,7 @@ export async function GET(
     }
 
     // 자료 조회
-    const db = getAdminDb();
-    const materialsSnapshot = await db
-      .collection('materials')
-      .where('lesson_id', '==', id)
-      .where('is_latest', '==', true)
-      .get();
-
-    const materials = materialsSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-        updated_at: data.updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-      };
-    });
+    const materials = await getServerMaterials(id);
 
     return NextResponse.json({
       success: true,
@@ -55,33 +45,21 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const db = getAdminDb();
 
     // 수업 존재 확인
-    const lessonRef = db.collection('lessons').doc(id);
-    const lessonDoc = await lessonRef.get();
-
-    if (!lessonDoc.exists) {
+    const existing = await getServerLesson(id);
+    if (!existing) {
       return NextResponse.json({ error: '수업을 찾을 수 없습니다.' }, { status: 404 });
     }
 
     const updates = await req.json();
-    updates.updated_at = new Date();
 
     // 수업 업데이트
-    await lessonRef.update(updates);
-
-    const updatedDoc = await lessonRef.get();
-    const data = updatedDoc.data() || {};
+    const lesson = await updateServerLesson(id, updates);
 
     return NextResponse.json({
       success: true,
-      lesson: {
-        id: updatedDoc.id,
-        ...data,
-        created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-        updated_at: data.updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-      },
+      lesson,
       message: '수업이 수정되었습니다.',
     });
   } catch (error) {
@@ -100,29 +78,15 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const db = getAdminDb();
 
     // 수업 존재 확인
-    const lessonRef = db.collection('lessons').doc(id);
-    const lessonDoc = await lessonRef.get();
-
-    if (!lessonDoc.exists) {
+    const existing = await getServerLesson(id);
+    if (!existing) {
       return NextResponse.json({ error: '수업을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 관련 자료 삭제
-    const materialsSnapshot = await db
-      .collection('materials')
-      .where('lesson_id', '==', id)
-      .get();
-
-    const batch = db.batch();
-    materialsSnapshot.docs.forEach(doc => {
-      batch.delete(doc.ref);
-    });
-    batch.delete(lessonRef);
-
-    await batch.commit();
+    // 수업 및 관련 자료 삭제
+    await deleteServerLesson(id);
 
     return NextResponse.json({
       success: true,

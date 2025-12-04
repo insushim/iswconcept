@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerLesson, getServerMaterial } from '@/lib/firebase/admin';
+import { getServerLesson, getServerMaterial } from '@/lib/firebase/server';
 import {
   generatePPTX,
   generateLessonPlanDocx,
@@ -21,7 +21,7 @@ export async function GET(
       return NextResponse.json({ error: '수업 ID가 필요합니다.' }, { status: 400 });
     }
 
-    // Firebase Admin으로 수업 정보 조회
+    // Firebase REST API로 수업 정보 조회
     const lesson = await getServerLesson(lessonId);
 
     if (!lesson) {

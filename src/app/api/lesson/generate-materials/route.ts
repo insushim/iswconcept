@@ -5,7 +5,7 @@ import {
   generatePPTXContentPrompt,
   generateWorksheetPrompt,
 } from '@/lib/gemini/prompts';
-import { getServerLesson, saveServerMaterial } from '@/lib/firebase/admin';
+import { getServerLesson, saveServerMaterial } from '@/lib/firebase/server';
 import type { GeneratedLesson } from '@/types/lesson';
 import type { PPTXContent, WorksheetContent, TeachingScriptContent } from '@/types/material';
 
