@@ -5,11 +5,17 @@ import {
   generatePPTXContentPrompt,
   generateWorksheetPrompt,
 } from '@/lib/gemini/prompts';
-import { getServerLesson } from '@/lib/firebase/admin';
+import { getServerLesson, saveServerMaterial } from '@/lib/firebase/admin';
 import type { GeneratedLesson } from '@/types/lesson';
 import type { PPTXContent, WorksheetContent, TeachingScriptContent } from '@/types/material';
 
 export const maxDuration = 60;
+
+const TYPE_TITLES: Record<string, string> = {
+  teaching_script: '수업 대본',
+  pptx: '수업 PPT',
+  worksheet: '학습지',
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -85,9 +91,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: '지원하지 않는 타입입니다.' }, { status: 400 });
     }
 
+    // Firebase에 자료 저장
+    const title = TYPE_TITLES[type] || type;
+    const materialId = await saveServerMaterial(lessonId, type, title, content as unknown as Record<string, unknown>);
+
     return NextResponse.json({
       success: true,
       type,
+      materialId,
       content,
       message: '자료가 생성되었습니다.',
     });

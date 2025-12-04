@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getServerLesson, getServerMaterial, getAdminDb } from '@/lib/firebase/admin';
 
 // GET: 수업 조회
 export async function GET(
@@ -8,38 +8,31 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const supabase = await createClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    }
 
     // 수업 조회
-    const { data: lesson, error: lessonError } = await supabase
-      .from('lessons')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const lesson = await getServerLesson(id);
 
-    if (lessonError || !lesson) {
+    if (!lesson) {
       return NextResponse.json({ error: '수업을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 권한 확인 (본인 수업이거나 공개 수업)
-    if (lesson.user_id !== user.id && !lesson.is_public) {
-      return NextResponse.json({ error: '접근 권한이 없습니다.' }, { status: 403 });
-    }
-
     // 자료 조회
-    const { data: materials } = await supabase
-      .from('materials')
-      .select('*')
-      .eq('lesson_id', id)
-      .eq('is_latest', true);
+    const db = getAdminDb();
+    const materialsSnapshot = await db
+      .collection('materials')
+      .where('lesson_id', '==', id)
+      .where('is_latest', '==', true)
+      .get();
+
+    const materials = materialsSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+        updated_at: data.updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -49,7 +42,7 @@ export async function GET(
   } catch (error) {
     console.error('Lesson GET error:', error);
     return NextResponse.json(
-      { error: '수업 조회 중 오류가 발생했습니다.' },
+      { error: error instanceof Error ? error.message : '수업 조회 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
@@ -62,50 +55,39 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const supabase = await createClient();
+    const db = getAdminDb();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // 수업 존재 확인
+    const lessonRef = db.collection('lessons').doc(id);
+    const lessonDoc = await lessonRef.get();
 
-    if (!user) {
-      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    }
-
-    // 권한 확인
-    const { data: existing } = await supabase
-      .from('lessons')
-      .select('user_id')
-      .eq('id', id)
-      .single();
-
-    if (!existing || existing.user_id !== user.id) {
-      return NextResponse.json({ error: '수정 권한이 없습니다.' }, { status: 403 });
+    if (!lessonDoc.exists) {
+      return NextResponse.json({ error: '수업을 찾을 수 없습니다.' }, { status: 404 });
     }
 
     const updates = await req.json();
+    updates.updated_at = new Date();
 
     // 수업 업데이트
-    const { data: lesson, error } = await supabase
-      .from('lessons')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
+    await lessonRef.update(updates);
 
-    if (error) {
-      throw error;
-    }
+    const updatedDoc = await lessonRef.get();
+    const data = updatedDoc.data() || {};
 
     return NextResponse.json({
       success: true,
-      lesson,
+      lesson: {
+        id: updatedDoc.id,
+        ...data,
+        created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+        updated_at: data.updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+      },
       message: '수업이 수정되었습니다.',
     });
   } catch (error) {
     console.error('Lesson PUT error:', error);
     return NextResponse.json(
-      { error: '수업 수정 중 오류가 발생했습니다.' },
+      { error: error instanceof Error ? error.message : '수업 수정 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
@@ -118,33 +100,29 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const supabase = await createClient();
+    const db = getAdminDb();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // 수업 존재 확인
+    const lessonRef = db.collection('lessons').doc(id);
+    const lessonDoc = await lessonRef.get();
 
-    if (!user) {
-      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
+    if (!lessonDoc.exists) {
+      return NextResponse.json({ error: '수업을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 권한 확인
-    const { data: existing } = await supabase
-      .from('lessons')
-      .select('user_id')
-      .eq('id', id)
-      .single();
+    // 관련 자료 삭제
+    const materialsSnapshot = await db
+      .collection('materials')
+      .where('lesson_id', '==', id)
+      .get();
 
-    if (!existing || existing.user_id !== user.id) {
-      return NextResponse.json({ error: '삭제 권한이 없습니다.' }, { status: 403 });
-    }
+    const batch = db.batch();
+    materialsSnapshot.docs.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    batch.delete(lessonRef);
 
-    // 수업 삭제 (CASCADE로 자료도 함께 삭제됨)
-    const { error } = await supabase.from('lessons').delete().eq('id', id);
-
-    if (error) {
-      throw error;
-    }
+    await batch.commit();
 
     return NextResponse.json({
       success: true,
@@ -153,7 +131,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Lesson DELETE error:', error);
     return NextResponse.json(
-      { error: '수업 삭제 중 오류가 발생했습니다.' },
+      { error: error instanceof Error ? error.message : '수업 삭제 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
