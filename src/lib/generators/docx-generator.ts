@@ -242,8 +242,11 @@ export async function generateTeachingScriptDocx(
 ): Promise<Buffer> {
   const sections: Paragraph[] = [];
 
+  // script.sections가 없으면 빈 배열 사용
+  const scriptSections = script?.sections || [];
+
   // 각 단계별 대본
-  for (const section of script.sections) {
+  for (const section of scriptSections) {
     const stageInfo = section.stageId
       ? CBI_STAGES[section.stageId as CBIStageId]
       : null;
@@ -397,9 +400,9 @@ export async function generateWorksheetDocx(
   worksheetContent: WorksheetContent
 ): Promise<Buffer> {
   const sections: Paragraph[] = [];
-  const worksheet = worksheetContent.worksheet;
+  const worksheet = worksheetContent?.worksheet || { header: { title: lesson.title }, sections: [] };
 
-  for (const section of worksheet.sections) {
+  for (const section of worksheet.sections || []) {
     // 섹션 제목
     sections.push(
       new Paragraph({
