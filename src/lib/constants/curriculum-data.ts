@@ -11,11 +11,61 @@ export const PUBLISHERS = [
   { id: 'national', name: '국정교과서', code: 'national' }
 ] as const;
 
-export const GRADES = [3, 4, 5, 6] as const;
+export const GRADES = [1, 2, 3, 4, 5, 6] as const;
+
+// 과목별 출판사 정보 (국정/검정 구분)
+// 국정교과서만 사용하는 과목: 국어, 수학, 사회, 과학, 도덕 (1~4학년은 모두 국정)
+// 검정교과서 사용 과목: 영어, 음악, 미술, 체육, 실과 (검정 출판사 선택 가능)
+export const SUBJECT_PUBLISHER_INFO: Record<string, {
+  isNational: boolean;  // 국정교과서만 사용 여부
+  nationalGrades?: number[];  // 국정 사용 학년 (일부 학년만 국정인 경우)
+  availablePublishers?: string[];  // 검정 시 사용 가능한 출판사 목록
+}> = {
+  korean: { isNational: true },  // 국어: 전 학년 국정
+  math: { isNational: true },    // 수학: 전 학년 국정
+  society: { isNational: true }, // 사회: 전 학년 국정
+  science: { isNational: true }, // 과학: 전 학년 국정
+  moral: { isNational: true },   // 도덕: 전 학년 국정
+  english: {
+    isNational: false,
+    nationalGrades: [3, 4],  // 3~4학년은 국정
+    availablePublishers: ['chunjae', 'donga', 'kyohak', 'kumsung', 'ybm', 'daekyo']
+  },
+  music: {
+    isNational: false,
+    availablePublishers: ['chunjae', 'mirae', 'bisang', 'jihak', 'kumsung', 'donga']
+  },
+  art: {
+    isNational: false,
+    availablePublishers: ['chunjae', 'mirae', 'bisang', 'jihak', 'kumsung', 'donga']
+  },
+  pe: {
+    isNational: false,
+    availablePublishers: ['chunjae', 'mirae', 'bisang', 'jihak', 'kumsung', 'donga']
+  },
+  practical: {
+    isNational: false,
+    availablePublishers: ['chunjae', 'mirae', 'bisang', 'donga', 'kyohak']
+  },
+  // 1~2학년 통합교과
+  spring: { isNational: true },  // 봄 (1~2학년)
+  summer: { isNational: true },  // 여름 (1~2학년)
+  autumn: { isNational: true },  // 가을 (1~2학년)
+  winter: { isNational: true },  // 겨울 (1~2학년)
+  safelife: { isNational: true }, // 안전한 생활 (1~2학년)
+};
 
 export const SUBJECTS = [
-  { id: 'korean', name: '국어', code: 'korean', category: '국어', grades: [3, 4, 5, 6] },
-  { id: 'math', name: '수학', code: 'math', category: '수학', grades: [3, 4, 5, 6] },
+  // 1~2학년 통합교과 및 기본과목
+  { id: 'korean', name: '국어', code: 'korean', category: '국어', grades: [1, 2, 3, 4, 5, 6] },
+  { id: 'math', name: '수학', code: 'math', category: '수학', grades: [1, 2, 3, 4, 5, 6] },
+  // 1~2학년 통합교과
+  { id: 'spring', name: '봄', code: 'spring', category: '통합', grades: [1, 2] },
+  { id: 'summer', name: '여름', code: 'summer', category: '통합', grades: [1, 2] },
+  { id: 'autumn', name: '가을', code: 'autumn', category: '통합', grades: [1, 2] },
+  { id: 'winter', name: '겨울', code: 'winter', category: '통합', grades: [1, 2] },
+  { id: 'safelife', name: '안전한 생활', code: 'safelife', category: '안전', grades: [1, 2] },
+  // 3~6학년 교과
   { id: 'society', name: '사회', code: 'society', category: '사회', grades: [3, 4, 5, 6] },
   { id: 'science', name: '과학', code: 'science', category: '과학', grades: [3, 4, 5, 6] },
   { id: 'english', name: '영어', code: 'english', category: '영어', grades: [3, 4, 5, 6] },
@@ -30,6 +80,34 @@ export const SUBJECTS = [
 export const getSubjectsForGrade = (grade: number) =>
   SUBJECTS.filter((subject) => (subject.grades as readonly number[]).includes(grade));
 
+// 과목과 학년에 따른 사용 가능 출판사 목록
+export const getPublishersForSubjectAndGrade = (subject: string, grade: number): typeof PUBLISHERS[number][] => {
+  const info = SUBJECT_PUBLISHER_INFO[subject];
+
+  // 정보가 없으면 국정교과서만 반환
+  if (!info) {
+    return PUBLISHERS.filter(p => p.id === 'national');
+  }
+
+  // 국정교과서만 사용하는 과목
+  if (info.isNational) {
+    return PUBLISHERS.filter(p => p.id === 'national');
+  }
+
+  // 특정 학년만 국정인 경우 (예: 영어 3~4학년)
+  if (info.nationalGrades && info.nationalGrades.includes(grade)) {
+    return PUBLISHERS.filter(p => p.id === 'national');
+  }
+
+  // 검정 가능한 경우 - 해당 출판사들만 반환
+  if (info.availablePublishers) {
+    return PUBLISHERS.filter(p => info.availablePublishers!.includes(p.id));
+  }
+
+  // 기본적으로 모든 출판사 반환
+  return [...PUBLISHERS];
+};
+
 // 단원 타입
 interface Unit {
   id: string;
@@ -40,6 +118,137 @@ interface Unit {
 
 // 국정교과서 단원 데이터 (2024년 기준)
 export const UNITS: Record<string, Unit[]> = {
+  // ==================== 1~2학년 통합교과 ====================
+  // 1학년 국어
+  korean_1: [
+    { id: 'kor_1_1_1', name: '1. 바른 자세로 읽고 쓰기', unitNumber: 1, semester: 1 },
+    { id: 'kor_1_1_2', name: '2. 재미있게 ㄱㄴㄷ', unitNumber: 2, semester: 1 },
+    { id: 'kor_1_1_3', name: '3. 다 함께 아야어여', unitNumber: 3, semester: 1 },
+    { id: 'kor_1_1_4', name: '4. 글자를 만들어요', unitNumber: 4, semester: 1 },
+    { id: 'kor_1_1_5', name: '5. 다정하게 인사해요', unitNumber: 5, semester: 1 },
+    { id: 'kor_1_1_6', name: '6. 받침이 있는 글자', unitNumber: 6, semester: 1 },
+    { id: 'kor_1_1_7', name: '7. 생각을 나타내요', unitNumber: 7, semester: 1 },
+    { id: 'kor_1_1_8', name: '8. 소리 내어 또박또박 읽어요', unitNumber: 8, semester: 1 },
+    { id: 'kor_1_1_9', name: '9. 그림일기를 써요', unitNumber: 9, semester: 1 },
+    { id: 'kor_1_2_1', name: '1. 소중한 책을 소개해요', unitNumber: 1, semester: 2 },
+    { id: 'kor_1_2_2', name: '2. 소리와 모양을 흉내 내요', unitNumber: 2, semester: 2 },
+    { id: 'kor_1_2_3', name: '3. 문장으로 표현해요', unitNumber: 3, semester: 2 },
+    { id: 'kor_1_2_4', name: '4. 바른 말을 해요', unitNumber: 4, semester: 2 },
+    { id: 'kor_1_2_5', name: '5. 알맞은 목소리로 읽어요', unitNumber: 5, semester: 2 },
+    { id: 'kor_1_2_6', name: '6. 고운 말을 해요', unitNumber: 6, semester: 2 },
+    { id: 'kor_1_2_7', name: '7. 무엇이 중요할까요', unitNumber: 7, semester: 2 },
+    { id: 'kor_1_2_8', name: '8. 띄어 읽어요', unitNumber: 8, semester: 2 },
+    { id: 'kor_1_2_9', name: '9. 겪은 일을 글로 써요', unitNumber: 9, semester: 2 },
+  ],
+  // 2학년 국어
+  korean_2: [
+    { id: 'kor_2_1_1', name: '1. 시를 즐겨요', unitNumber: 1, semester: 1 },
+    { id: 'kor_2_1_2', name: '2. 자신 있게 말해요', unitNumber: 2, semester: 1 },
+    { id: 'kor_2_1_3', name: '3. 마음을 나누어요', unitNumber: 3, semester: 1 },
+    { id: 'kor_2_1_4', name: '4. 말놀이를 해요', unitNumber: 4, semester: 1 },
+    { id: 'kor_2_1_5', name: '5. 낱말을 바르고 정확하게 써요', unitNumber: 5, semester: 1 },
+    { id: 'kor_2_1_6', name: '6. 차례대로 말해요', unitNumber: 6, semester: 1 },
+    { id: 'kor_2_1_7', name: '7. 친구들에게 알려요', unitNumber: 7, semester: 1 },
+    { id: 'kor_2_1_8', name: '8. 마음을 짐작해요', unitNumber: 8, semester: 1 },
+    { id: 'kor_2_1_9', name: '9. 생각을 생생하게 나타내요', unitNumber: 9, semester: 1 },
+    { id: 'kor_2_1_10', name: '10. 다른 사람을 생각해요', unitNumber: 10, semester: 1 },
+    { id: 'kor_2_1_11', name: '11. 상상의 날개를 펴요', unitNumber: 11, semester: 1 },
+    { id: 'kor_2_2_1', name: '1. 장면을 떠올리며', unitNumber: 1, semester: 2 },
+    { id: 'kor_2_2_2', name: '2. 인상 깊었던 일을 써요', unitNumber: 2, semester: 2 },
+    { id: 'kor_2_2_3', name: '3. 말의 재미를 찾아서', unitNumber: 3, semester: 2 },
+    { id: 'kor_2_2_4', name: '4. 인물의 마음을 짐작해요', unitNumber: 4, semester: 2 },
+    { id: 'kor_2_2_5', name: '5. 간직하고 싶은 노래', unitNumber: 5, semester: 2 },
+    { id: 'kor_2_2_6', name: '6. 자세하게 소개해요', unitNumber: 6, semester: 2 },
+    { id: 'kor_2_2_7', name: '7. 일이 일어난 차례를 살펴요', unitNumber: 7, semester: 2 },
+    { id: 'kor_2_2_8', name: '8. 바르게 말해요', unitNumber: 8, semester: 2 },
+    { id: 'kor_2_2_9', name: '9. 주요 내용을 찾아요', unitNumber: 9, semester: 2 },
+    { id: 'kor_2_2_10', name: '10. 칭찬하는 말을 주고받아요', unitNumber: 10, semester: 2 },
+    { id: 'kor_2_2_11', name: '11. 실감 나게 표현해요', unitNumber: 11, semester: 2 },
+  ],
+  // 1학년 수학
+  math_1: [
+    { id: 'math_1_1_1', name: '1. 9까지의 수', unitNumber: 1, semester: 1 },
+    { id: 'math_1_1_2', name: '2. 여러 가지 모양', unitNumber: 2, semester: 1 },
+    { id: 'math_1_1_3', name: '3. 덧셈과 뺄셈', unitNumber: 3, semester: 1 },
+    { id: 'math_1_1_4', name: '4. 비교하기', unitNumber: 4, semester: 1 },
+    { id: 'math_1_1_5', name: '5. 50까지의 수', unitNumber: 5, semester: 1 },
+    { id: 'math_1_2_1', name: '1. 100까지의 수', unitNumber: 1, semester: 2 },
+    { id: 'math_1_2_2', name: '2. 덧셈과 뺄셈(1)', unitNumber: 2, semester: 2 },
+    { id: 'math_1_2_3', name: '3. 여러 가지 모양', unitNumber: 3, semester: 2 },
+    { id: 'math_1_2_4', name: '4. 덧셈과 뺄셈(2)', unitNumber: 4, semester: 2 },
+    { id: 'math_1_2_5', name: '5. 시계 보기와 규칙 찾기', unitNumber: 5, semester: 2 },
+    { id: 'math_1_2_6', name: '6. 덧셈과 뺄셈(3)', unitNumber: 6, semester: 2 },
+  ],
+  // 2학년 수학
+  math_2: [
+    { id: 'math_2_1_1', name: '1. 세 자리 수', unitNumber: 1, semester: 1 },
+    { id: 'math_2_1_2', name: '2. 여러 가지 도형', unitNumber: 2, semester: 1 },
+    { id: 'math_2_1_3', name: '3. 덧셈과 뺄셈', unitNumber: 3, semester: 1 },
+    { id: 'math_2_1_4', name: '4. 길이 재기', unitNumber: 4, semester: 1 },
+    { id: 'math_2_1_5', name: '5. 분류하기', unitNumber: 5, semester: 1 },
+    { id: 'math_2_1_6', name: '6. 곱셈', unitNumber: 6, semester: 1 },
+    { id: 'math_2_2_1', name: '1. 네 자리 수', unitNumber: 1, semester: 2 },
+    { id: 'math_2_2_2', name: '2. 곱셈구구', unitNumber: 2, semester: 2 },
+    { id: 'math_2_2_3', name: '3. 길이 재기', unitNumber: 3, semester: 2 },
+    { id: 'math_2_2_4', name: '4. 시각과 시간', unitNumber: 4, semester: 2 },
+    { id: 'math_2_2_5', name: '5. 표와 그래프', unitNumber: 5, semester: 2 },
+    { id: 'math_2_2_6', name: '6. 규칙 찾기', unitNumber: 6, semester: 2 },
+  ],
+  // 1학년 봄
+  spring_1: [
+    { id: 'spr_1_1', name: '1. 학교에 가면', unitNumber: 1, semester: 1 },
+    { id: 'spr_1_2', name: '2. 도란도란 봄 동산', unitNumber: 2, semester: 1 },
+  ],
+  // 2학년 봄
+  spring_2: [
+    { id: 'spr_2_1', name: '1. 알쏭달쏭 나', unitNumber: 1, semester: 1 },
+    { id: 'spr_2_2', name: '2. 봄이 오면', unitNumber: 2, semester: 1 },
+  ],
+  // 1학년 여름
+  summer_1: [
+    { id: 'sum_1_1', name: '1. 우리는 가족입니다', unitNumber: 1, semester: 1 },
+    { id: 'sum_1_2', name: '2. 여름 나라', unitNumber: 2, semester: 1 },
+  ],
+  // 2학년 여름
+  summer_2: [
+    { id: 'sum_2_1', name: '1. 이런 집 저런 집', unitNumber: 1, semester: 1 },
+    { id: 'sum_2_2', name: '2. 초록이의 여름 여행', unitNumber: 2, semester: 1 },
+  ],
+  // 1학년 가을
+  autumn_1: [
+    { id: 'aut_1_1', name: '1. 내 이웃 이야기', unitNumber: 1, semester: 2 },
+    { id: 'aut_1_2', name: '2. 현규의 추석', unitNumber: 2, semester: 2 },
+  ],
+  // 2학년 가을
+  autumn_2: [
+    { id: 'aut_2_1', name: '1. 동네 한 바퀴', unitNumber: 1, semester: 2 },
+    { id: 'aut_2_2', name: '2. 가을아 어디 있니', unitNumber: 2, semester: 2 },
+  ],
+  // 1학년 겨울
+  winter_1: [
+    { id: 'win_1_1', name: '1. 여기는 우리나라', unitNumber: 1, semester: 2 },
+    { id: 'win_1_2', name: '2. 우리의 겨울', unitNumber: 2, semester: 2 },
+  ],
+  // 2학년 겨울
+  winter_2: [
+    { id: 'win_2_1', name: '1. 두근두근 세계 여행', unitNumber: 1, semester: 2 },
+    { id: 'win_2_2', name: '2. 겨울 탐정대의 대작전', unitNumber: 2, semester: 2 },
+  ],
+  // 1학년 안전한 생활
+  safelife_1: [
+    { id: 'safe_1_1', name: '1. 학교에서 안전하게', unitNumber: 1, semester: 1 },
+    { id: 'safe_1_2', name: '2. 교통안전을 지켜요', unitNumber: 2, semester: 1 },
+    { id: 'safe_1_3', name: '3. 생활 속 안전', unitNumber: 3, semester: 2 },
+    { id: 'safe_1_4', name: '4. 위험으로부터 나를 지켜요', unitNumber: 4, semester: 2 },
+  ],
+  // 2학년 안전한 생활
+  safelife_2: [
+    { id: 'safe_2_1', name: '1. 안전하게 학교생활', unitNumber: 1, semester: 1 },
+    { id: 'safe_2_2', name: '2. 안전한 교통생활', unitNumber: 2, semester: 1 },
+    { id: 'safe_2_3', name: '3. 안전하게 생활해요', unitNumber: 3, semester: 2 },
+    { id: 'safe_2_4', name: '4. 안전한 나 안전한 우리', unitNumber: 4, semester: 2 },
+  ],
+
   // ==================== 국어 (국정) ====================
   // 3학년 국어
   korean_3: [

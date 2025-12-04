@@ -16,7 +16,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { toast } from '@/hooks/use-toast';
-import { PUBLISHERS, GRADES, getSubjectsForGrade, getUnitsForSubjectAndGrade } from '@/lib/constants/curriculum-data';
+import { PUBLISHERS, GRADES, getSubjectsForGrade, getUnitsForSubjectAndGrade, getPublishersForSubjectAndGrade } from '@/lib/constants/curriculum-data';
 import { getPeriodsForUnitName, LessonPeriod } from '@/lib/constants/all-periods';
 import { Loader2, Sparkles, CheckCircle, Circle, Wand2 } from 'lucide-react';
 import { useLessonStore } from '@/stores/lesson-store';
@@ -50,6 +50,10 @@ export function LessonForm() {
 
   const subjects = formData.grade ? getSubjectsForGrade(parseInt(formData.grade)) : [];
   const units = formData.subject && formData.grade ? getUnitsForSubjectAndGrade(formData.subject, formData.grade) : [];
+  // 과목과 학년에 따른 사용 가능한 출판사 목록
+  const availablePublishers = formData.subject && formData.grade
+    ? getPublishersForSubjectAndGrade(formData.subject, parseInt(formData.grade))
+    : PUBLISHERS;
 
   // 단원이 변경되면 차시 목록 업데이트
   useEffect(() => {
@@ -65,16 +69,40 @@ export function LessonForm() {
     }
   }, [formData.unit, formData.subject, formData.grade]);
 
-  // 차시가 변경되면 해당 차시 정보 업데이트
+  // 차시가 변경되면 해당 차시 정보 업데이트 및 자동 입력
   useEffect(() => {
     if (formData.period && availablePeriods.length > 0) {
       const periodNum = parseInt(formData.period);
       const periodInfo = availablePeriods.find(p => p.period === periodNum);
       setSelectedPeriodInfo(periodInfo || null);
+
+      // 차시 정보가 있고 학습목표가 있으면 자동 입력
+      if (periodInfo && periodInfo.objectives.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          objectives: periodInfo.objectives.join('\n'),
+          achievementStandards: periodInfo.achievementStandards.join('\n'),
+          duration: periodInfo.duration.toString(),
+        }));
+      }
     } else {
       setSelectedPeriodInfo(null);
     }
   }, [formData.period, availablePeriods]);
+
+  // 과목/학년 변경 시 출판사 자동 선택 (국정교과서인 경우)
+  useEffect(() => {
+    if (formData.subject && formData.grade) {
+      const publishers = getPublishersForSubjectAndGrade(formData.subject, parseInt(formData.grade));
+      // 국정교과서만 있는 경우 자동 선택
+      if (publishers.length === 1 && publishers[0].id === 'national') {
+        setFormData(prev => ({ ...prev, publisher: 'national' }));
+      } else if (formData.publisher === 'national' && !publishers.some(p => p.id === 'national')) {
+        // 현재 선택된 출판사가 사용 불가능한 경우 초기화
+        setFormData(prev => ({ ...prev, publisher: '' }));
+      }
+    }
+  }, [formData.subject, formData.grade]);
 
   // 차시 정보로 학습목표/성취기준 자동 채우기
   const fillFromPeriodInfo = () => {
@@ -255,19 +283,22 @@ export function LessonForm() {
               <Select
                 value={formData.publisher}
                 onValueChange={(value) => setFormData({ ...formData, publisher: value })}
-                disabled={isGenerating}
+                disabled={isGenerating || (availablePublishers.length === 1)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="출판사 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  {PUBLISHERS.map((pub) => (
+                  {availablePublishers.map((pub) => (
                     <SelectItem key={pub.id} value={pub.id}>
                       {pub.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {availablePublishers.length === 1 && availablePublishers[0].id === 'national' && (
+                <p className="text-xs text-muted-foreground">이 과목은 국정교과서만 사용합니다.</p>
+              )}
             </div>
 
             <div className="space-y-2">
