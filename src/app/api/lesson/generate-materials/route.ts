@@ -5,17 +5,10 @@ import {
   generatePPTXContentPrompt,
   generateWorksheetPrompt,
 } from '@/lib/gemini/prompts';
-import { getServerLesson, saveServerMaterial } from '@/lib/firebase/server';
 import type { GeneratedLesson } from '@/types/lesson';
 import type { PPTXContent, WorksheetContent, TeachingScriptContent } from '@/types/material';
 
 export const maxDuration = 60;
-
-const TYPE_TITLES: Record<string, string> = {
-  teaching_script: '수업 대본',
-  pptx: '수업 PPT',
-  worksheet: '학습지',
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,16 +17,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
     }
 
-    const { lessonId, type } = await req.json();
+    const { lessonId, type, lessonData } = await req.json();
 
     if (!lessonId || !type) {
       return NextResponse.json({ error: 'lessonId와 type이 필요합니다.' }, { status: 400 });
     }
 
-    // 수업 데이터 가져오기
-    const lesson = await getServerLesson(lessonId);
-    if (!lesson) {
-      return NextResponse.json({ error: '수업을 찾을 수 없습니다.' }, { status: 404 });
+    if (!lessonData) {
+      return NextResponse.json({ error: 'lessonData가 필요합니다.' }, { status: 400 });
     }
 
     const gemini = getGeminiClient();
@@ -41,33 +32,33 @@ export async function POST(req: NextRequest) {
     // 수업 설계 데이터 구성
     const lessonDesign: GeneratedLesson = {
       lessonOverview: {
-        title: lesson.title as string,
-        coreConcepts: lesson.core_concepts as string[] || [],
-        relatedConcepts: lesson.related_concepts as string[] || [],
-        bigIdeas: lesson.big_ideas as string[] || [],
+        title: lessonData.title as string,
+        coreConcepts: lessonData.core_concepts as string[] || [],
+        relatedConcepts: lessonData.related_concepts as string[] || [],
+        bigIdeas: lessonData.big_ideas as string[] || [],
         guidingQuestions: {
-          factual: lesson.factual_questions as string[] || [],
-          conceptual: lesson.conceptual_questions as string[] || [],
-          debatable: lesson.debatable_questions as string[] || [],
+          factual: lessonData.factual_questions as string[] || [],
+          conceptual: lessonData.conceptual_questions as string[] || [],
+          debatable: lessonData.debatable_questions as string[] || [],
         },
       },
       stages: {
-        engage: lesson.stage_engage as GeneratedLesson['stages']['engage'],
-        focus: lesson.stage_focus as GeneratedLesson['stages']['focus'],
-        investigate: lesson.stage_investigate as GeneratedLesson['stages']['investigate'],
-        organize: lesson.stage_organize as GeneratedLesson['stages']['organize'],
-        generalize: lesson.stage_generalize as GeneratedLesson['stages']['generalize'],
-        transfer: lesson.stage_transfer as GeneratedLesson['stages']['transfer'],
-        reflect: lesson.stage_reflect as GeneratedLesson['stages']['reflect'],
+        engage: lessonData.stage_engage as GeneratedLesson['stages']['engage'],
+        focus: lessonData.stage_focus as GeneratedLesson['stages']['focus'],
+        investigate: lessonData.stage_investigate as GeneratedLesson['stages']['investigate'],
+        organize: lessonData.stage_organize as GeneratedLesson['stages']['organize'],
+        generalize: lessonData.stage_generalize as GeneratedLesson['stages']['generalize'],
+        transfer: lessonData.stage_transfer as GeneratedLesson['stages']['transfer'],
+        reflect: lessonData.stage_reflect as GeneratedLesson['stages']['reflect'],
       },
-      assessmentPlan: lesson.assessment_plan as GeneratedLesson['assessmentPlan'],
-      preparation: lesson.preparation as string[] || [],
-      safetyNotes: lesson.safety_notes as string[] || [],
-      differentiation: lesson.differentiation as GeneratedLesson['differentiation'],
+      assessmentPlan: lessonData.assessment_plan as GeneratedLesson['assessmentPlan'],
+      preparation: lessonData.preparation as string[] || [],
+      safetyNotes: lessonData.safety_notes as string[] || [],
+      differentiation: lessonData.differentiation as GeneratedLesson['differentiation'],
     };
 
-    const grade = lesson.grade as number;
-    const subject = lesson.subject_id as string;
+    const grade = lessonData.grade as number;
+    const subject = lessonData.subject_id as string;
 
     let content: TeachingScriptContent | PPTXContent | WorksheetContent;
 
@@ -91,14 +82,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: '지원하지 않는 타입입니다.' }, { status: 400 });
     }
 
-    // Firebase에 자료 저장
-    const title = TYPE_TITLES[type] || type;
-    const materialId = await saveServerMaterial(lessonId, type, title, content as unknown as Record<string, unknown>);
-
+    // Gemini 생성 결과만 반환 (저장은 클라이언트에서 처리)
     return NextResponse.json({
       success: true,
       type,
-      materialId,
       content,
       message: '자료가 생성되었습니다.',
     });

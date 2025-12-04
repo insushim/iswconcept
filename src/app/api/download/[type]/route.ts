@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerLesson, getServerMaterial } from '@/lib/firebase/server';
 import {
   generatePPTX,
   generateLessonPlanDocx,
@@ -9,27 +8,18 @@ import {
 import type { Lesson } from '@/types/lesson';
 import type { TeachingScriptContent, WorksheetContent, PPTXContent } from '@/types/material';
 
-export async function GET(
+// POST: 클라이언트에서 데이터를 받아서 파일 생성
+export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ type: string }> }
 ) {
   try {
     const { type } = await params;
-    const lessonId = req.nextUrl.searchParams.get('lessonId');
-
-    if (!lessonId) {
-      return NextResponse.json({ error: '수업 ID가 필요합니다.' }, { status: 400 });
-    }
-
-    // Firebase REST API로 수업 정보 조회
-    const lesson = await getServerLesson(lessonId);
+    const { lesson, materialContent } = await req.json();
 
     if (!lesson) {
-      return NextResponse.json({ error: '수업을 찾을 수 없습니다.' }, { status: 404 });
+      return NextResponse.json({ error: '수업 데이터가 필요합니다.' }, { status: 400 });
     }
-
-    // 자료 조회
-    const material = await getServerMaterial(lessonId, type);
 
     let buffer: Buffer;
     let filename: string;
@@ -39,22 +29,22 @@ export async function GET(
 
     switch (type) {
       case 'lesson_plan':
-        buffer = await generateLessonPlanDocx(lesson as unknown as Lesson);
+        buffer = await generateLessonPlanDocx(lesson as Lesson);
         filename = `${lessonTitle}_교수학습지도안.docx`;
         contentType =
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
         break;
 
       case 'teaching_script':
-        if (!material?.content) {
+        if (!materialContent) {
           return NextResponse.json(
-            { error: '수업 대본이 없습니다. 아직 생성되지 않았습니다.' },
+            { error: '수업 대본이 없습니다. 먼저 생성해주세요.' },
             { status: 404 }
           );
         }
         buffer = await generateTeachingScriptDocx(
-          lesson as unknown as Lesson,
-          material.content as TeachingScriptContent
+          lesson as Lesson,
+          materialContent as TeachingScriptContent
         );
         filename = `${lessonTitle}_수업대본.docx`;
         contentType =
@@ -62,22 +52,22 @@ export async function GET(
         break;
 
       case 'pptx':
-        if (!material?.content) {
-          return NextResponse.json({ error: 'PPT가 없습니다. 아직 생성되지 않았습니다.' }, { status: 404 });
+        if (!materialContent) {
+          return NextResponse.json({ error: 'PPT가 없습니다. 먼저 생성해주세요.' }, { status: 404 });
         }
-        buffer = await generatePPTX(lesson as unknown as Lesson, material.content as PPTXContent);
+        buffer = await generatePPTX(lesson as Lesson, materialContent as PPTXContent);
         filename = `${lessonTitle}_수업PPT.pptx`;
         contentType =
           'application/vnd.openxmlformats-officedocument.presentationml.presentation';
         break;
 
       case 'worksheet':
-        if (!material?.content) {
-          return NextResponse.json({ error: '학습지가 없습니다. 아직 생성되지 않았습니다.' }, { status: 404 });
+        if (!materialContent) {
+          return NextResponse.json({ error: '학습지가 없습니다. 먼저 생성해주세요.' }, { status: 404 });
         }
         buffer = await generateWorksheetDocx(
-          lesson as unknown as Lesson,
-          material.content as WorksheetContent
+          lesson as Lesson,
+          materialContent as WorksheetContent
         );
         filename = `${lessonTitle}_학습지.docx`;
         contentType =

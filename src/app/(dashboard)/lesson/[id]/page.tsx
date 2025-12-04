@@ -118,7 +118,7 @@ export default function LessonDetailPage() {
               편집
             </Button>
           </Link>
-          <DownloadMenu lessonId={lesson.id} lessonTitle={lesson.title} />
+          <DownloadMenu lesson={lesson} materials={materials} />
         </div>
       </div>
 
@@ -389,11 +389,11 @@ export default function LessonDetailPage() {
 
 // 다운로드 메뉴 컴포넌트
 function DownloadMenu({
-  lessonId,
-  lessonTitle,
+  lesson,
+  materials,
 }: {
-  lessonId: string;
-  lessonTitle: string;
+  lesson: Lesson;
+  materials: Material[];
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -401,7 +401,20 @@ function DownloadMenu({
   const downloadFile = async (type: string) => {
     setDownloading(type);
     try {
-      const response = await fetch(`/api/download/${type}?lessonId=${lessonId}`);
+      // 해당 타입의 자료 찾기
+      const material = materials.find((m) => m.type === type);
+      const materialContent = material?.content || null;
+
+      const response = await fetch(`/api/download/${type}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lesson,
+          materialContent,
+        }),
+      });
 
       if (!response.ok) {
         const error = await response.json();
@@ -426,7 +439,7 @@ function DownloadMenu({
         pptx: '_수업PPT',
         worksheet: '_학습지',
       };
-      a.download = `${lessonTitle}${names[type] || ''}${extensions[type] || '.docx'}`;
+      a.download = `${lesson.title}${names[type] || ''}${extensions[type] || '.docx'}`;
 
       document.body.appendChild(a);
       a.click();
@@ -550,7 +563,11 @@ function MaterialsSection({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${idToken}`,
         },
-        body: JSON.stringify({ lessonId: lesson.id, type }),
+        body: JSON.stringify({
+          lessonId: lesson.id,
+          type,
+          lessonData: lesson,  // 클라이언트에서 수업 데이터 전달
+        }),
       });
 
       const data = await response.json();
