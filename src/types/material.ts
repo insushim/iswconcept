@@ -169,17 +169,19 @@ export interface WorksheetFooter {
 }
 
 export interface Worksheet {
-  lessonId: string;
+  lessonId?: string;
   header: WorksheetHeader;
   sections: WorksheetSection[];
   footer: WorksheetFooter;
 }
 
 export interface TeacherGuide {
-  answers: { questionNumber: number; answer: string }[];
-  scoringRubric: { section: string; maxPoints: number; criteria: string }[];
-  commonMisconceptions: string[];
-  differentiationNotes: {
+  overview?: string;
+  answers?: { questionNumber: number; answer: string }[];
+  sampleAnswers?: { questionNumber: number; answer: string }[];
+  scoringRubric?: { section: string; maxPoints: number; criteria: string }[];
+  commonMisconceptions?: string[];
+  differentiationNotes?: {
     support: string;
     extension: string;
   };
@@ -187,7 +189,7 @@ export interface TeacherGuide {
 
 export interface WorksheetContent {
   worksheet: Worksheet;
-  teacherGuide: TeacherGuide;
+  teacherGuide?: TeacherGuide;
 }
 
 // 수업 대본 관련 타입

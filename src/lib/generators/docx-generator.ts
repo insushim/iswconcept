@@ -1126,20 +1126,31 @@ export async function generateWorksheetDocx(
   lesson: Lesson,
   worksheetContent: WorksheetContent
 ): Promise<Buffer> {
+  // 방어 코드: worksheetContent가 없거나 잘못된 형식일 경우
+  if (!worksheetContent || !worksheetContent.worksheet) {
+    console.error('[generateWorksheetDocx] worksheetContent가 없거나 잘못된 형식입니다:', worksheetContent);
+    throw new Error('학습지 데이터가 없거나 잘못된 형식입니다. 학습지를 다시 생성해주세요.');
+  }
+
   const allChildren: (Paragraph | Table)[] = [];
-  const worksheet = worksheetContent?.worksheet || { header: { title: lesson.title }, sections: [] };
+  const worksheet = worksheetContent.worksheet;
+
+  // header, sections, footer 기본값 설정
+  const header = worksheet.header || { title: lesson.title };
+  const sections = worksheet.sections || [];
+  const footer = worksheet.footer || {};
 
   // 헤더 정보
   allChildren.push(
     new Paragraph({
       children: [
         new TextRun({
-          text: `${worksheet.header?.grade || lesson.grade + '학년'} ${worksheet.header?.subject || lesson.subject_id}`,
+          text: `${header.grade || lesson.grade + '학년'} ${header.subject || lesson.subject_id}`,
           size: 20,
           color: COLORS.lightText,
         }),
         new TextRun({
-          text: worksheet.header?.totalPeriods ? `  |  ${worksheet.header.totalPeriods}` : '',
+          text: header.totalPeriods ? `  |  ${header.totalPeriods}` : '',
           size: 20,
           color: COLORS.lightText,
         }),
@@ -1153,7 +1164,7 @@ export async function generateWorksheetDocx(
     new Paragraph({
       children: [
         new TextRun({
-          text: worksheet.header?.title || lesson.title,
+          text: header.title || lesson.title,
           bold: true,
           size: 32,
           color: COLORS.primary,
@@ -1166,12 +1177,12 @@ export async function generateWorksheetDocx(
   );
 
   // 부제목
-  if (worksheet.header?.subtitle) {
+  if (header.subtitle) {
     allChildren.push(
       new Paragraph({
         children: [
           new TextRun({
-            text: worksheet.header.subtitle,
+            text: header.subtitle,
             size: 22,
             color: COLORS.lightText,
           }),
@@ -1183,7 +1194,7 @@ export async function generateWorksheetDocx(
   }
 
   // 개념 렌즈
-  if (worksheet.header?.conceptLens) {
+  if (header.conceptLens) {
     allChildren.push(
       new Paragraph({
         children: [
@@ -1193,7 +1204,7 @@ export async function generateWorksheetDocx(
             size: 20,
           }),
           new TextRun({
-            text: worksheet.header.conceptLens,
+            text: header.conceptLens,
             size: 20,
             shading: { type: ShadingType.CLEAR, fill: 'FEF3C7' },
           }),
@@ -1222,7 +1233,7 @@ export async function generateWorksheetDocx(
   );
 
   // 섹션별 처리
-  for (const section of worksheet.sections || []) {
+  for (const section of sections) {
     // 섹션 제목 (단계 색상 적용)
     const stageColor = section.stageColor?.replace('#', '') || COLORS.primary;
 
@@ -1287,7 +1298,7 @@ export async function generateWorksheetDocx(
   }
 
   // 푸터
-  if (worksheet.footer) {
+  if (footer && Object.keys(footer).length > 0) {
     allChildren.push(
       new Paragraph({
         spacing: { before: 400 },
@@ -1297,12 +1308,12 @@ export async function generateWorksheetDocx(
       })
     );
 
-    if (worksheet.footer.teacherComment) {
+    if (footer.teacherComment) {
       allChildren.push(
         new Paragraph({
           children: [
             new TextRun({
-              text: worksheet.footer.teacherCommentPrompt || '선생님의 피드백',
+              text: footer.teacherCommentPrompt || '선생님의 피드백',
               bold: true,
               size: 20,
             }),
@@ -1327,12 +1338,12 @@ export async function generateWorksheetDocx(
       }
     }
 
-    if (worksheet.footer.portfolioNote) {
+    if (footer.portfolioNote) {
       allChildren.push(
         new Paragraph({
           children: [
             new TextRun({
-              text: worksheet.footer.portfolioNote,
+              text: footer.portfolioNote,
               size: 16,
               color: COLORS.lightText,
               italics: true,
