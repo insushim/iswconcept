@@ -125,11 +125,11 @@ export function LessonForm() {
 
     // 진행 상태 업데이트
     const steps: Array<{ id: string; name: string; status: 'pending' | 'in_progress' | 'completed' }> = [
-      { id: 'analysis', name: '교육과정 분석', status: 'in_progress' },
-      { id: 'concepts', name: '핵심 개념 도출', status: 'pending' },
-      { id: 'design', name: '7단계 수업 설계', status: 'pending' },
+      { id: 'analysis', name: '단원 설계', status: 'in_progress' },
+      { id: 'script', name: '수업 대본', status: 'pending' },
+      { id: 'ppt', name: 'PPT 자료', status: 'pending' },
+      { id: 'worksheet', name: '학습지', status: 'pending' },
       { id: 'save', name: '저장', status: 'pending' },
-      { id: 'complete', name: '완료', status: 'pending' },
     ];
 
     updateProgress({ steps, percentage: 5, currentStep: '교육과정 분석 중...' });
@@ -159,8 +159,10 @@ export function LessonForm() {
         updateProgress({ steps: newSteps, percentage, currentStep });
       };
 
-      // API 호출 (AI 생성)
+      // 1단계: 단원 설계 생성
       const totalPeriods = unitInfo?.totalPeriods || 10;
+      updateProgress({ steps, percentage: 5, currentStep: '단원 설계 중...' });
+
       const response = await fetch('/api/lesson/generate', {
         method: 'POST',
         headers: {
@@ -173,7 +175,7 @@ export function LessonForm() {
           subject: formData.subject,
           unit: formData.unit || '단원 미지정',
           totalPeriods,
-          duration: 40, // 1차시당 40분 고정
+          duration: 40,
           objectives: formData.objectives.split('\n').filter((o) => o.trim()),
           achievementStandards: formData.achievementStandards
             ? formData.achievementStandards.split('\n').filter((s) => s.trim())
@@ -181,24 +183,15 @@ export function LessonForm() {
         }),
       });
 
-      // 진행 상태 업데이트
-      updateStep(1, 30, '핵심 개념 도출 중...');
-
       const data = await response.json();
-
-      updateStep(2, 60, '7단계 수업 설계 중...');
-
       if (!response.ok) {
         throw new Error(data.error || '수업 생성에 실패했습니다.');
       }
 
-      // Firestore에 수업 저장
-      updateStep(3, 80, '저장 중...');
       const lessonDesign = data.lessonDesign;
-      console.log('[lesson-form] AI 응답 받음, Firestore 저장 시작...');
-      console.log('[lesson-form] lessonDesign:', lessonDesign ? '있음' : '없음');
+      updateStep(0, 20, '단원 설계 완료!');
 
-      let lessonId: string;
+      // lessonData 구성
       const lessonData = {
         title: lessonDesign.unitOverview?.title || lessonDesign.lessonOverview?.title || `${formData.subject} ${formData.unit}`,
         publisher_id: formData.publisher,
@@ -233,50 +226,123 @@ export function LessonForm() {
         view_count: 0,
       };
 
+      // 2단계: 수업 대본 생성
+      updateStep(1, 35, '수업 대본 생성 중...');
+      let scriptContent = null;
       try {
-        console.log('[lesson-form] createLesson 호출 시작...');
+        const scriptResponse = await fetch('/api/lesson/generate-materials', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            lessonId: 'temp',
+            type: 'teaching_script',
+            lessonData,
+          }),
+        });
+        if (scriptResponse.ok) {
+          const scriptData = await scriptResponse.json();
+          scriptContent = scriptData.content;
+        }
+      } catch (e) {
+        console.error('수업 대본 생성 실패:', e);
+      }
 
-        // 15초 타임아웃 적용
+      // 3단계: PPT 자료 생성
+      updateStep(2, 55, 'PPT 자료 생성 중...');
+      let pptContent = null;
+      try {
+        const pptResponse = await fetch('/api/lesson/generate-materials', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            lessonId: 'temp',
+            type: 'pptx',
+            lessonData,
+          }),
+        });
+        if (pptResponse.ok) {
+          const pptData = await pptResponse.json();
+          pptContent = pptData.content;
+        }
+      } catch (e) {
+        console.error('PPT 생성 실패:', e);
+      }
+
+      // 4단계: 학습지 생성
+      updateStep(3, 75, '학습지 생성 중...');
+      let worksheetContent = null;
+      try {
+        const worksheetResponse = await fetch('/api/lesson/generate-materials', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            lessonId: 'temp',
+            type: 'worksheet',
+            lessonData,
+          }),
+        });
+        if (worksheetResponse.ok) {
+          const worksheetData = await worksheetResponse.json();
+          worksheetContent = worksheetData.content;
+        }
+      } catch (e) {
+        console.error('학습지 생성 실패:', e);
+      }
+
+      // 5단계: Firestore에 저장
+      updateStep(4, 90, '저장 중...');
+      let lessonId: string;
+
+      try {
         const savePromise = createLesson(user.uid, lessonData);
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => {
-            reject(new Error('저장 타임아웃 - 네트워크 연결을 확인해주세요'));
+            reject(new Error('저장 타임아웃'));
           }, 15000);
         });
 
         lessonId = await Promise.race([savePromise, timeoutPromise]);
-        console.log('[lesson-form] createLesson 성공! ID:', lessonId);
-      } catch (saveError) {
-        console.error('[lesson-form] createLesson 실패:', saveError);
-        const errorMsg = saveError instanceof Error ? saveError.message : '알 수 없는 오류';
 
-        // 타임아웃 시 더 자세한 안내
-        if (errorMsg.includes('타임아웃')) {
-          throw new Error('Firestore 연결 실패: 네트워크 또는 Firebase 설정을 확인해주세요. (Firebase Console에서 Firestore가 활성화되어 있는지 확인)');
+        // 자료들 저장 (병렬로)
+        const savePromises = [
+          createMaterial(lessonId, 'lesson_plan', '교수학습지도안', lessonDesign),
+        ];
+        if (scriptContent) {
+          savePromises.push(createMaterial(lessonId, 'teaching_script', '수업 대본', scriptContent));
         }
-        throw new Error('수업 저장 실패: ' + errorMsg);
+        if (pptContent) {
+          savePromises.push(createMaterial(lessonId, 'pptx', 'PPT 자료', pptContent));
+        }
+        if (worksheetContent) {
+          savePromises.push(createMaterial(lessonId, 'worksheet', '탐구 학습지', worksheetContent));
+        }
+
+        await Promise.all(savePromises);
+      } catch (saveError) {
+        console.error('저장 실패:', saveError);
+        throw new Error('저장 실패: ' + (saveError instanceof Error ? saveError.message : '알 수 없는 오류'));
       }
 
       // 완료
-      console.log('[lesson-form] 완료 처리 중...');
       const completedSteps = steps.map((s) => ({ ...s, status: 'completed' as const }));
       updateProgress({ steps: completedSteps, percentage: 100, currentStep: '완료!' });
 
       toast({
         title: '수업 생성 완료!',
-        description: '수업 설계가 성공적으로 완료되었습니다.',
+        description: '단원 설계, 수업 대본, PPT, 학습지가 모두 생성되었습니다.',
         variant: 'success',
       });
 
-      // 수업 설계 자료 저장 (백그라운드에서 처리 - 페이지 이동에 영향 없음)
-      console.log('[lesson-form] Material 백그라운드 저장 시작...');
-      createMaterial(lessonId, 'lesson_plan', '교수학습지도안', lessonDesign)
-        .then(() => console.log('[lesson-form] Material 저장 완료'))
-        .catch((err) => console.error('[lesson-form] Material 저장 실패:', err));
-
-      console.log('[lesson-form] 페이지 이동:', `/lesson/${lessonId}`);
-
-      // 즉시 페이지 이동
+      // 페이지 이동
       window.location.href = `/lesson/${lessonId}`;
     } catch (error) {
       console.error('Generation error:', error);

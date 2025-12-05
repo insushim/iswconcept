@@ -311,7 +311,7 @@ export default function LibraryPage() {
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" />
-                      {lesson.duration}분
+                      {lesson.class_period}차시
                     </span>
                     <span className="flex items-center gap-1">
                       <Eye className="h-3.5 w-3.5" />
