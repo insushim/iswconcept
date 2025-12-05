@@ -37,12 +37,7 @@ export async function createLesson(
       updated_at: serverTimestamp(),
     });
 
-    // 저장이 완료되었는지 확인 (서버에서 데이터 읽기)
-    const savedDoc = await getDoc(docRef);
-    if (!savedDoc.exists()) {
-      throw new Error('수업 저장에 실패했습니다. 다시 시도해주세요.');
-    }
-
+    // addDoc이 성공적으로 반환되면 문서가 생성된 것임
     console.log('Lesson saved successfully:', docRef.id);
     return docRef.id;
   } catch (error) {
@@ -200,12 +195,7 @@ export async function createMaterial(
       updated_at: serverTimestamp(),
     });
 
-    // 저장이 완료되었는지 확인
-    const savedDoc = await getDoc(docRef);
-    if (!savedDoc.exists()) {
-      throw new Error('자료 저장에 실패했습니다.');
-    }
-
+    // addDoc이 성공적으로 반환되면 문서가 생성된 것임
     console.log('Material saved successfully:', docRef.id);
     return docRef.id;
   } catch (error) {
