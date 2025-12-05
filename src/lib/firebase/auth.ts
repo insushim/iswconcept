@@ -8,7 +8,7 @@ import {
   User,
   updateProfile,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { auth, db } from './config';
 
 // 회원가입
@@ -20,13 +20,14 @@ export async function signUp(email: string, password: string, name: string) {
   await updateProfile(user, { displayName: name });
 
   // Firestore에 사용자 정보 저장
+  const now = Timestamp.now();
   await setDoc(doc(db, 'users', user.uid), {
     id: user.uid,
     email: user.email,
     name: name,
     role: 'teacher',
-    created_at: serverTimestamp(),
-    updated_at: serverTimestamp(),
+    created_at: now,
+    updated_at: now,
   });
 
   return user;
@@ -75,5 +76,5 @@ export async function updateUserProfile(
   }
 ) {
   const docRef = doc(db, 'users', userId);
-  await setDoc(docRef, { ...data, updated_at: serverTimestamp() }, { merge: true });
+  await setDoc(docRef, { ...data, updated_at: Timestamp.now() }, { merge: true });
 }

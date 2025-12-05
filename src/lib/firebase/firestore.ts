@@ -10,9 +10,8 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy,
   limit,
-  serverTimestamp,
+  orderBy,
   Timestamp,
   increment,
 } from 'firebase/firestore';
@@ -28,16 +27,16 @@ export async function createLesson(
   lessonData: Omit<Lesson, 'id' | 'user_id' | 'created_at' | 'updated_at'>
 ) {
   try {
+    const now = Timestamp.now();
     const docRef = await addDoc(collection(db, 'lessons'), {
       ...lessonData,
       user_id: userId,
       is_public: lessonData.is_public ?? false,
       view_count: lessonData.view_count ?? 0,
-      created_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
+      created_at: now,
+      updated_at: now,
     });
 
-    // addDoc이 성공적으로 반환되면 문서가 생성된 것임
     console.log('Lesson saved successfully:', docRef.id);
     return docRef.id;
   } catch (error) {
@@ -126,7 +125,7 @@ export async function updateLesson(lessonId: string, data: Partial<Lesson>) {
   const docRef = doc(db, 'lessons', lessonId);
   await updateDoc(docRef, {
     ...data,
-    updated_at: serverTimestamp(),
+    updated_at: Timestamp.now(),
   });
 }
 
@@ -135,7 +134,7 @@ export async function toggleLessonPublic(lessonId: string, isPublic: boolean) {
   const docRef = doc(db, 'lessons', lessonId);
   await updateDoc(docRef, {
     is_public: isPublic,
-    updated_at: serverTimestamp(),
+    updated_at: Timestamp.now(),
   });
 }
 
@@ -189,6 +188,7 @@ export async function createMaterial(
   content: unknown
 ) {
   try {
+    const now = Timestamp.now();
     const docRef = await addDoc(collection(db, 'materials'), {
       lesson_id: lessonId,
       type,
@@ -196,8 +196,8 @@ export async function createMaterial(
       content,
       version: 1,
       is_latest: true,
-      created_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
+      created_at: now,
+      updated_at: now,
     });
 
     console.log('Material saved successfully:', docRef.id);
@@ -273,7 +273,7 @@ export async function updateMaterialContent(materialId: string, content: unknown
   const docRef = doc(db, 'materials', materialId);
   await updateDoc(docRef, {
     content,
-    updated_at: serverTimestamp(),
+    updated_at: Timestamp.now(),
   });
 }
 
@@ -308,7 +308,7 @@ export async function addGenerationHistory(
     type,
     status,
     tokens_used: tokensUsed,
-    created_at: serverTimestamp(),
+    created_at: Timestamp.now(),
   });
 }
 
