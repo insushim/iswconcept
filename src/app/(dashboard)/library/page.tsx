@@ -46,7 +46,7 @@ export default function LibraryPage() {
   useEffect(() => {
     const fetchLessons = async () => {
       try {
-        const publicLessons = await getPublicLessons(100);
+        const publicLessons = await getPublicLessons(30);
         setLessons(publicLessons);
         setFilteredLessons(publicLessons);
       } catch (error) {
@@ -183,7 +183,7 @@ export default function LibraryPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">전체 학년</SelectItem>
-                  {[3, 4, 5, 6].map((grade) => (
+                  {[1, 2, 3, 4, 5, 6].map((grade) => (
                     <SelectItem key={grade} value={grade.toString()}>
                       {grade}학년
                     </SelectItem>

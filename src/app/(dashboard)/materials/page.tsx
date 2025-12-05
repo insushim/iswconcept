@@ -53,7 +53,7 @@ export default function MaterialsPage() {
       }
 
       try {
-        const userLessons = await getUserLessons(user.uid, 100);
+        const userLessons = await getUserLessons(user.uid, 30);
         setLessons(userLessons);
         setFilteredLessons(userLessons);
       } catch (error) {

@@ -308,53 +308,33 @@ export async function addGenerationHistory(
   });
 }
 
-// 생성 기록 조회
-export async function getGenerationHistory(userId: string, limitCount: number = 50) {
-  // 먼저 사용자의 수업 ID들을 가져옴 (최적화: 최근 30개만)
-  const lessons = await getUserLessons(userId, 30);
+// 생성 기록 조회 (간소화된 버전 - 수업 10개만 조회)
+export async function getGenerationHistory(userId: string, limitCount: number = 20) {
+  // 최근 수업 10개만 가져옴 (성능 최적화)
+  const lessons = await getUserLessons(userId, 10);
   const lessonIds = lessons.map((l) => l.id);
 
   if (lessonIds.length === 0) {
     return [];
   }
 
-  // Firestore에서는 'in' 쿼리가 최대 10개까지만 지원
-  // 병렬 실행으로 최적화
-  const batchSize = 10;
-  const batchPromises: Promise<unknown[]>[] = [];
-
-  for (let i = 0; i < lessonIds.length; i += batchSize) {
-    const batch = lessonIds.slice(i, i + batchSize);
-    const batchPromise = (async () => {
-      const q = query(
-        collection(db, 'generation_history'),
-        where('lesson_id', 'in', batch),
-        orderBy('created_at', 'desc'),
-        limit(Math.ceil(limitCount / Math.ceil(lessonIds.length / batchSize)))
-      );
-
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map((doc) => {
-        const data = doc.data();
-        const lesson = lessons.find((l) => l.id === data.lesson_id);
-        return {
-          id: doc.id,
-          ...data,
-          created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-          lesson: lesson ? { title: lesson.title } : null,
-        };
-      });
-    })();
-    batchPromises.push(batchPromise);
-  }
-
-  const batchResults = await Promise.all(batchPromises);
-  const results = batchResults.flat() as { created_at: string }[];
-
-  // 날짜순 정렬 후 limit 적용
-  results.sort((a, b) =>
-    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  // 단일 쿼리로 최적화 (최대 10개 ID)
+  const q = query(
+    collection(db, 'generation_history'),
+    where('lesson_id', 'in', lessonIds),
+    orderBy('created_at', 'desc'),
+    limit(limitCount)
   );
 
-  return results.slice(0, limitCount);
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map((doc) => {
+    const data = doc.data();
+    const lesson = lessons.find((l) => l.id === data.lesson_id);
+    return {
+      id: doc.id,
+      ...data,
+      created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+      lesson: lesson ? { title: lesson.title } : null,
+    };
+  });
 }
