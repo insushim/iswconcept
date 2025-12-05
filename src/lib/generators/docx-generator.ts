@@ -965,13 +965,14 @@ export async function generateWorksheetDocx(
   return await Packer.toBuffer(doc);
 }
 
-// 헬퍼 함수들 - 테이블 너비 수정
+// 헬퍼 함수들 - 테이블 너비 수정 (전체 너비 100%)
 function createInfoTable(lesson: Lesson): Table {
   return new Table({
     width: {
-      size: 9000,  // 고정 너비 (twips 단위)
-      type: WidthType.DXA,
+      size: 100,
+      type: WidthType.PERCENTAGE,
     },
+    columnWidths: [1500, 3000, 1500, 3000],
     rows: [
       new TableRow({
         children: [

@@ -983,9 +983,70 @@ interface WorksheetSection {
   items: WorksheetItem[];
 }
 
+interface WorksheetHeader {
+  title?: string;
+  subtitle?: string;
+  subject?: string;
+  grade?: string;
+  totalPeriods?: string;
+  conceptLens?: string;
+}
+
 interface WorksheetContent {
-  title: string;
+  title?: string;
+  header?: WorksheetHeader;
   sections: WorksheetSection[];
+}
+
+// 생성된 학습지 섹션을 편집용 섹션으로 변환
+interface GeneratedWorksheetQuestion {
+  id?: string;
+  number?: number;
+  type?: string;
+  question?: string;
+  content?: string;
+  prompt?: string;
+  lines?: number;
+  subQuestions?: Array<{ label?: string; lines?: number; prompt?: string }>;
+  quadrants?: Array<{ position?: string; label?: string; lines?: number }>;
+  tableHeaders?: string[];
+  rows?: unknown[];
+}
+
+interface GeneratedWorksheetSection {
+  id?: string;
+  sectionNumber?: number;
+  title?: string;
+  stage?: string;
+  periods?: string;
+  instructions?: string;
+  questions?: GeneratedWorksheetQuestion[];
+  items?: WorksheetItem[];
+}
+
+function convertGeneratedSectionToEditable(section: GeneratedWorksheetSection): WorksheetSection {
+  // questions 배열이 있으면 items로 변환
+  const rawItems = section.questions || section.items || [];
+  const items: WorksheetItem[] = rawItems.map((q: GeneratedWorksheetQuestion | WorksheetItem, index: number) => {
+    // GeneratedWorksheetQuestion 형태인지 확인
+    const genQ = q as GeneratedWorksheetQuestion;
+    const wsItem = q as WorksheetItem;
+    return {
+      id: q.id || `item-${Date.now()}-${index}`,
+      type: (q.type as WorksheetItem['type']) || 'question',
+      number: q.number || index + 1,
+      content: genQ.question || wsItem.content || genQ.prompt || '',
+      answerSpace: true,
+      answerLines: genQ.lines || 3,
+    };
+  });
+
+  return {
+    id: section.id || `section-${Date.now()}`,
+    title: section.title || '섹션',
+    instructions: section.instructions || (section.periods ? `${section.periods}` : ''),
+    items,
+  };
 }
 
 // 학습지 편집 컴포넌트
@@ -993,11 +1054,33 @@ function WorksheetEditor({
   content,
   onChange,
 }: {
-  content?: WorksheetContent;
+  content?: WorksheetContent | { worksheet: WorksheetContent & { sections?: GeneratedWorksheetSection[] } };
   onChange: (content: WorksheetContent) => void;
 }) {
-  const sections = content?.sections || [];
-  const title = content?.title || '학습지';
+  // worksheet 필드가 있는 경우 (생성된 JSON 구조) 처리
+  const worksheetData = content && 'worksheet' in content ? content.worksheet : content;
+
+  // 생성된 섹션을 편집 가능한 형태로 변환
+  const rawSections = worksheetData?.sections || [];
+  const sections: WorksheetSection[] = rawSections.map((s: WorksheetSection | GeneratedWorksheetSection) => {
+    // 이미 items 배열이 있고 questions가 없으면 그대로 사용
+    if ('items' in s && s.items && s.items.length > 0) {
+      return s as WorksheetSection;
+    }
+    // questions 배열이 있으면 변환
+    if ('questions' in s && s.questions) {
+      return convertGeneratedSectionToEditable(s as GeneratedWorksheetSection);
+    }
+    // 기본 반환
+    return {
+      id: s.id || `section-${Date.now()}`,
+      title: s.title || '섹션',
+      instructions: s.instructions || '',
+      items: [],
+    };
+  });
+
+  const title = worksheetData?.header?.title || worksheetData?.title || '학습지';
 
   const addSection = () => {
     const newSection: WorksheetSection = {
