@@ -106,13 +106,26 @@ export async function generateLessonPlanDocx(
         }
       }
 
-      // 차시 간 페이지 나누기 (마지막 차시 제외)
+      // 차시 간 구분선 (페이지 나누기 대신 구분선 사용, 3차시마다 페이지 브레이크)
       if (i < lessonPlanContent.lessonPlans.length - 1) {
-        allChildren.push(
-          new Paragraph({
-            children: [new PageBreak()],
-          })
-        );
+        // 3차시마다만 페이지 브레이크 (예: 3, 6, 9차시 후)
+        if ((i + 1) % 3 === 0) {
+          allChildren.push(
+            new Paragraph({
+              children: [new PageBreak()],
+            })
+          );
+        } else {
+          // 그 외에는 구분선만
+          allChildren.push(
+            new Paragraph({
+              spacing: { before: 300, after: 100 },
+              border: {
+                bottom: { style: BorderStyle.SINGLE, size: 6, color: COLORS.lightText },
+              },
+            })
+          );
+        }
       }
     }
   } else {
@@ -313,7 +326,7 @@ export async function generateLessonPlanDocx(
   return await Packer.toBuffer(doc);
 }
 
-// 차시별 기본정보 테이블
+// 차시별 기본정보 테이블 - 100% 너비 사용
 function createPeriodInfoTable(lesson: Lesson, plan: LessonPlanDocxContent['lessonPlans'][0]): Table {
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
@@ -321,41 +334,74 @@ function createPeriodInfoTable(lesson: Lesson, plan: LessonPlanDocxContent['less
     rows: [
       new TableRow({
         children: [
-          createTableCell('학년/과목', true, 1500),
-          createTableCell(`${lesson.grade}학년 ${lesson.subject_id}`, false, 2500),
-          createTableCell('단원', true, 1000),
-          createTableCell(lesson.unit_id || lesson.title, false, 4000),
+          createPercentCell('학년/과목', true, 15),
+          createPercentCell(`${lesson.grade}학년 ${lesson.subject_id}`, false, 25),
+          createPercentCell('단원', true, 12),
+          createPercentCell(lesson.unit_id || lesson.title, false, 48),
         ],
       }),
       new TableRow({
         children: [
-          createTableCell('차시', true, 1500),
-          createTableCell(plan.periodRange, false, 2500),
-          createTableCell('학습주제', true, 1000),
-          createTableCell(plan.topic, false, 4000),
+          createPercentCell('차시', true, 15),
+          createPercentCell(plan.periodRange, false, 25),
+          createPercentCell('학습주제', true, 12),
+          createPercentCell(plan.topic, false, 48),
         ],
       }),
     ],
   });
 }
 
-// 도입-전개-정리 테이블 생성
+// 퍼센트 기반 셀 생성
+function createPercentCell(text: string, isHeader: boolean, widthPercent: number): TableCell {
+  return new TableCell({
+    children: [
+      new Paragraph({
+        children: [
+          new TextRun({
+            text,
+            bold: isHeader,
+            size: 20,
+          }),
+        ],
+        alignment: isHeader ? AlignmentType.CENTER : AlignmentType.LEFT,
+      }),
+    ],
+    shading: {
+      type: ShadingType.CLEAR,
+      fill: isHeader ? 'F3F4F6' : 'FFFFFF',
+    },
+    width: {
+      size: widthPercent,
+      type: WidthType.PERCENTAGE,
+    },
+    verticalAlign: VerticalAlign.CENTER,
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      left: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      right: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+    },
+  });
+}
+
+// 도입-전개-정리 테이블 생성 - 100% 너비 사용
 function createLessonPhaseTable(plan: LessonPlanDocxContent['lessonPlans'][0]): Table {
   const rows: TableRow[] = [];
 
-  // 헤더 행
+  // 헤더 행 - 퍼센트로 지정
   rows.push(
     new TableRow({
       children: [
-        createHeaderCell('단계', 1000),
-        createHeaderCell('시간', 800),
-        createHeaderCell('교수·학습 활동', 3600),
-        createHeaderCell('자료 및 유의점', 2600),
+        createHeaderCellPercent('단계', 10),
+        createHeaderCellPercent('시간', 8),
+        createHeaderCellPercent('교수·학습 활동', 55),
+        createHeaderCellPercent('자료 및 유의점', 27),
       ],
     })
   );
 
-  // 도입
+  // 도입 - 퍼센트 기반 너비 사용
   const introActivities = plan.introduction?.activities || [];
   if (introActivities.length > 0) {
     for (let i = 0; i < introActivities.length; i++) {
@@ -363,8 +409,8 @@ function createLessonPhaseTable(plan: LessonPlanDocxContent['lessonPlans'][0]): 
       rows.push(
         new TableRow({
           children: [
-            i === 0 ? createMergeCell('도입', introActivities.length, 1000, 'E8F5E9') : null,
-            i === 0 ? createMergeCell(`${plan.introduction?.duration || 5}분`, introActivities.length, 800) : null,
+            i === 0 ? createMergeCell('도입', introActivities.length, 10, 'E8F5E9') : null,
+            i === 0 ? createMergeCell(`${plan.introduction?.duration || 5}분`, introActivities.length, 8) : null,
             createActivityCell(activity),
             createMaterialCell(activity.materials),
           ].filter(Boolean) as TableCell[],
@@ -376,15 +422,15 @@ function createLessonPhaseTable(plan: LessonPlanDocxContent['lessonPlans'][0]): 
       new TableRow({
         children: [
           createPhaseCell('도입', 'E8F5E9'),
-          createTableCell(`${plan.introduction?.duration || 5}분`, false, 800),
-          createTableCell('', false, 3600),
-          createTableCell('', false, 2600),
+          createPercentCell(`${plan.introduction?.duration || 5}분`, false, 8),
+          createPercentCell('', false, 55),
+          createPercentCell('', false, 27),
         ],
       })
     );
   }
 
-  // 전개
+  // 전개 - 퍼센트 기반 너비 사용
   const devActivities = plan.development?.activities || [];
   if (devActivities.length > 0) {
     for (let i = 0; i < devActivities.length; i++) {
@@ -392,8 +438,8 @@ function createLessonPhaseTable(plan: LessonPlanDocxContent['lessonPlans'][0]): 
       rows.push(
         new TableRow({
           children: [
-            i === 0 ? createMergeCell('전개', devActivities.length, 1000, 'E3F2FD') : null,
-            i === 0 ? createMergeCell(`${plan.development?.duration || 30}분`, devActivities.length, 800) : null,
+            i === 0 ? createMergeCell('전개', devActivities.length, 10, 'E3F2FD') : null,
+            i === 0 ? createMergeCell(`${plan.development?.duration || 30}분`, devActivities.length, 8) : null,
             createActivityCell(activity),
             createMaterialCell(activity.materials),
           ].filter(Boolean) as TableCell[],
@@ -405,15 +451,15 @@ function createLessonPhaseTable(plan: LessonPlanDocxContent['lessonPlans'][0]): 
       new TableRow({
         children: [
           createPhaseCell('전개', 'E3F2FD'),
-          createTableCell(`${plan.development?.duration || 30}분`, false, 800),
-          createTableCell('', false, 3600),
-          createTableCell('', false, 2600),
+          createPercentCell(`${plan.development?.duration || 30}분`, false, 8),
+          createPercentCell('', false, 55),
+          createPercentCell('', false, 27),
         ],
       })
     );
   }
 
-  // 정리
+  // 정리 - 퍼센트 기반 너비 사용
   const concActivities = plan.conclusion?.activities || [];
   if (concActivities.length > 0) {
     for (let i = 0; i < concActivities.length; i++) {
@@ -421,8 +467,8 @@ function createLessonPhaseTable(plan: LessonPlanDocxContent['lessonPlans'][0]): 
       rows.push(
         new TableRow({
           children: [
-            i === 0 ? createMergeCell('정리', concActivities.length, 1000, 'FFF3E0') : null,
-            i === 0 ? createMergeCell(`${plan.conclusion?.duration || 5}분`, concActivities.length, 800) : null,
+            i === 0 ? createMergeCell('정리', concActivities.length, 10, 'FFF3E0') : null,
+            i === 0 ? createMergeCell(`${plan.conclusion?.duration || 5}분`, concActivities.length, 8) : null,
             createActivityCell(activity),
             createMaterialCell(activity.materials),
           ].filter(Boolean) as TableCell[],
@@ -434,9 +480,9 @@ function createLessonPhaseTable(plan: LessonPlanDocxContent['lessonPlans'][0]): 
       new TableRow({
         children: [
           createPhaseCell('정리', 'FFF3E0'),
-          createTableCell(`${plan.conclusion?.duration || 5}분`, false, 800),
-          createTableCell('', false, 3600),
-          createTableCell('', false, 2600),
+          createPercentCell(`${plan.conclusion?.duration || 5}분`, false, 8),
+          createPercentCell('', false, 55),
+          createPercentCell('', false, 27),
         ],
       })
     );
@@ -449,8 +495,8 @@ function createLessonPhaseTable(plan: LessonPlanDocxContent['lessonPlans'][0]): 
   });
 }
 
-// 헤더 셀 생성
-function createHeaderCell(text: string, width: number): TableCell {
+// 헤더 셀 생성 - 퍼센트 기반
+function createHeaderCellPercent(text: string, widthPercent: number): TableCell {
   return new TableCell({
     children: [
       new Paragraph({
@@ -459,7 +505,7 @@ function createHeaderCell(text: string, width: number): TableCell {
       }),
     ],
     shading: { type: ShadingType.CLEAR, fill: 'F3F4F6' },
-    width: { size: width, type: WidthType.DXA },
+    width: { size: widthPercent, type: WidthType.PERCENTAGE },
     verticalAlign: VerticalAlign.CENTER,
     borders: {
       top: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
@@ -470,7 +516,7 @@ function createHeaderCell(text: string, width: number): TableCell {
   });
 }
 
-// 단계 셀 생성 (색상 포함)
+// 단계 셀 생성 (색상 포함) - 퍼센트 기반
 function createPhaseCell(text: string, fillColor: string): TableCell {
   return new TableCell({
     children: [
@@ -480,7 +526,7 @@ function createPhaseCell(text: string, fillColor: string): TableCell {
       }),
     ],
     shading: { type: ShadingType.CLEAR, fill: fillColor },
-    width: { size: 1000, type: WidthType.DXA },
+    width: { size: 10, type: WidthType.PERCENTAGE },
     verticalAlign: VerticalAlign.CENTER,
     borders: {
       top: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
@@ -491,8 +537,8 @@ function createPhaseCell(text: string, fillColor: string): TableCell {
   });
 }
 
-// 병합 셀 생성
-function createMergeCell(text: string, rowSpan: number, width: number, fillColor?: string): TableCell {
+// 병합 셀 생성 - 퍼센트 기반
+function createMergeCell(text: string, rowSpan: number, widthPercent: number, fillColor?: string): TableCell {
   return new TableCell({
     children: [
       new Paragraph({
@@ -502,7 +548,7 @@ function createMergeCell(text: string, rowSpan: number, width: number, fillColor
     ],
     rowSpan,
     shading: fillColor ? { type: ShadingType.CLEAR, fill: fillColor } : undefined,
-    width: { size: width, type: WidthType.DXA },
+    width: { size: widthPercent, type: WidthType.PERCENTAGE },
     verticalAlign: VerticalAlign.CENTER,
     borders: {
       top: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
@@ -513,7 +559,7 @@ function createMergeCell(text: string, rowSpan: number, width: number, fillColor
   });
 }
 
-// 활동 셀 생성
+// 활동 셀 생성 - 퍼센트 기반
 function createActivityCell(activity: LessonPlanDocxContent['lessonPlans'][0]['introduction']['activities'][0]): TableCell {
   const paragraphs: Paragraph[] = [];
 
@@ -547,7 +593,7 @@ function createActivityCell(activity: LessonPlanDocxContent['lessonPlans'][0]['i
 
   return new TableCell({
     children: paragraphs,
-    width: { size: 3600, type: WidthType.DXA },
+    width: { size: 55, type: WidthType.PERCENTAGE },
     verticalAlign: VerticalAlign.TOP,
     borders: {
       top: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
@@ -558,7 +604,7 @@ function createActivityCell(activity: LessonPlanDocxContent['lessonPlans'][0]['i
   });
 }
 
-// 자료 셀 생성
+// 자료 셀 생성 - 퍼센트 기반
 function createMaterialCell(materials: string): TableCell {
   return new TableCell({
     children: [
@@ -566,7 +612,7 @@ function createMaterialCell(materials: string): TableCell {
         children: [new TextRun({ text: materials || '', size: 18 })],
       }),
     ],
-    width: { size: 2600, type: WidthType.DXA },
+    width: { size: 27, type: WidthType.PERCENTAGE },
     verticalAlign: VerticalAlign.TOP,
     borders: {
       top: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
@@ -1075,175 +1121,227 @@ export async function generateTeachingScriptDocx(
   return await Packer.toBuffer(doc);
 }
 
-// 학습지 생성
+// 학습지 생성 - 완전한 구현
 export async function generateWorksheetDocx(
   lesson: Lesson,
   worksheetContent: WorksheetContent
 ): Promise<Buffer> {
-  const sections: Paragraph[] = [];
+  const allChildren: (Paragraph | Table)[] = [];
   const worksheet = worksheetContent?.worksheet || { header: { title: lesson.title }, sections: [] };
 
+  // 헤더 정보
+  allChildren.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: `${worksheet.header?.grade || lesson.grade + '학년'} ${worksheet.header?.subject || lesson.subject_id}`,
+          size: 20,
+          color: COLORS.lightText,
+        }),
+        new TextRun({
+          text: worksheet.header?.totalPeriods ? `  |  ${worksheet.header.totalPeriods}` : '',
+          size: 20,
+          color: COLORS.lightText,
+        }),
+      ],
+      alignment: AlignmentType.RIGHT,
+    })
+  );
+
+  // 제목
+  allChildren.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: worksheet.header?.title || lesson.title,
+          bold: true,
+          size: 32,
+          color: COLORS.primary,
+        }),
+      ],
+      heading: HeadingLevel.TITLE,
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 50 },
+    })
+  );
+
+  // 부제목
+  if (worksheet.header?.subtitle) {
+    allChildren.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: worksheet.header.subtitle,
+            size: 22,
+            color: COLORS.lightText,
+          }),
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 100 },
+      })
+    );
+  }
+
+  // 개념 렌즈
+  if (worksheet.header?.conceptLens) {
+    allChildren.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: `개념 렌즈: `,
+            bold: true,
+            size: 20,
+          }),
+          new TextRun({
+            text: worksheet.header.conceptLens,
+            size: 20,
+            shading: { type: ShadingType.CLEAR, fill: 'FEF3C7' },
+          }),
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 150 },
+      })
+    );
+  }
+
+  // 이름/날짜 입력란
+  allChildren.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: '이름: ________________    반: _______    날짜: ____년 ____월 ____일',
+          size: 20,
+        }),
+      ],
+      alignment: AlignmentType.RIGHT,
+      spacing: { after: 300 },
+      border: {
+        bottom: { style: BorderStyle.SINGLE, size: 8, color: COLORS.primary },
+      },
+    })
+  );
+
+  // 섹션별 처리
   for (const section of worksheet.sections || []) {
-    // 섹션 제목
-    sections.push(
+    // 섹션 제목 (단계 색상 적용)
+    const stageColor = section.stageColor?.replace('#', '') || COLORS.primary;
+
+    allChildren.push(
       new Paragraph({
         children: [
           new TextRun({
             text: section.title,
             bold: true,
-            size: 26,
-            color: COLORS.primary,
+            size: 24,
+            color: stageColor,
           }),
         ],
         heading: HeadingLevel.HEADING_2,
-        spacing: { before: 400, after: 200 },
+        spacing: { before: 300, after: 100 },
+        shading: { type: ShadingType.CLEAR, fill: stageColor + '15' },
         border: {
-          bottom: {
-            color: COLORS.primary,
-            style: BorderStyle.SINGLE,
-            size: 12,
-          },
+          left: { style: BorderStyle.SINGLE, size: 24, color: stageColor },
         },
       })
     );
 
+    // 차시/단계 정보
+    if (section.periods || section.phase) {
+      allChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `${section.periods || ''} ${section.phase ? `| ${section.phase}` : ''}`,
+              size: 18,
+              color: COLORS.lightText,
+              italics: true,
+            }),
+          ],
+          spacing: { after: 100 },
+          indent: { left: 200 },
+        })
+      );
+    }
+
     // 설명
     if (section.instructions) {
-      sections.push(
+      allChildren.push(
         new Paragraph({
           children: [
             new TextRun({
               text: section.instructions,
               size: 20,
-              color: COLORS.lightText,
-              italics: true,
+              color: COLORS.text,
             }),
           ],
-          spacing: { after: 200 },
+          spacing: { after: 150 },
+          indent: { left: 200 },
         })
       );
     }
 
     // 문제/활동들
     for (const item of section.questions || []) {
-      if (item.type === 'short_answer' || item.type === 'long_answer') {
-        sections.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `${item.number}. ${item.question}`,
-                size: 22,
-              }),
-            ],
-            spacing: { before: 200, after: 100 },
-          })
-        );
+      allChildren.push(...renderWorksheetQuestion(item, stageColor));
+    }
+  }
 
-        // 답안 공간
-        const lines = item.lines || (item.answerSpace === 'large' ? 5 : item.answerSpace === 'medium' ? 3 : 2);
-        for (let i = 0; i < lines; i++) {
-          sections.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: '_'.repeat(80),
-                  size: 20,
-                  color: COLORS.lightText,
-                }),
-              ],
-              spacing: { before: 100 },
-            })
-          );
-        }
-      } else if (item.type === 'multiple_choice') {
-        sections.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `${item.number}. ${item.question}`,
-                size: 22,
-              }),
-            ],
-            spacing: { before: 200, after: 100 },
-          })
-        );
+  // 푸터
+  if (worksheet.footer) {
+    allChildren.push(
+      new Paragraph({
+        spacing: { before: 400 },
+        border: {
+          top: { style: BorderStyle.SINGLE, size: 4, color: COLORS.lightText },
+        },
+      })
+    );
 
-        // 선택지
-        if (item.options) {
-          for (const option of item.options) {
-            sections.push(
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `    ${option}`,
-                    size: 20,
-                  }),
-                ],
-                indent: { left: 360 },
-              })
-            );
-          }
-        }
-      } else if (item.type === 'fill_blank') {
-        sections.push(
+    if (worksheet.footer.teacherComment) {
+      allChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: worksheet.footer.teacherCommentPrompt || '선생님의 피드백',
+              bold: true,
+              size: 20,
+            }),
+          ],
+          spacing: { before: 200, after: 100 },
+        })
+      );
+      // 피드백 작성 공간
+      for (let i = 0; i < 3; i++) {
+        allChildren.push(
           new Paragraph({
             children: [
               new TextRun({
-                text: `${item.number}. ${item.question}`,
-                size: 22,
-              }),
-            ],
-            spacing: { before: 200, after: 100 },
-          })
-        );
-      } else if (item.type === 'drawing') {
-        sections.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `${item.number}. ${item.question}`,
-                size: 22,
-              }),
-            ],
-            spacing: { before: 200, after: 100 },
-          })
-        );
-
-        // 다이어그램 공간
-        sections.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: '[그림/다이어그램 공간]',
+                text: '_'.repeat(90),
                 size: 18,
                 color: COLORS.lightText,
-                italics: true,
               }),
             ],
-            alignment: AlignmentType.CENTER,
-            spacing: { before: 200, after: 200 },
-            border: {
-              top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
-              bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
-              left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
-              right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
-            },
-          })
-        );
-      } else {
-        // 기타 타입 처리
-        sections.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `${item.number}. ${item.question}`,
-                size: 22,
-              }),
-            ],
-            spacing: { before: 200, after: 100 },
+            spacing: { before: 80 },
           })
         );
       }
+    }
+
+    if (worksheet.footer.portfolioNote) {
+      allChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: worksheet.footer.portfolioNote,
+              size: 16,
+              color: COLORS.lightText,
+              italics: true,
+            }),
+          ],
+          alignment: AlignmentType.RIGHT,
+          spacing: { before: 200 },
+        })
+      );
     }
   }
 
@@ -1262,50 +1360,724 @@ export async function generateWorksheetDocx(
     },
     sections: [
       {
-        children: [
-          // 헤더
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `${lesson.grade}학년 ${lesson.subject_id}`,
-                size: 20,
-                color: COLORS.lightText,
-              }),
-            ],
-            alignment: AlignmentType.RIGHT,
-          }),
-          // 제목
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: worksheet.header?.title || lesson.title,
-                bold: true,
-                size: 36,
-                color: COLORS.primary,
-              }),
-            ],
-            heading: HeadingLevel.TITLE,
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 100 },
-          }),
-          // 이름/날짜 입력란
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: '이름: ________________    날짜: ____년 ____월 ____일',
-                size: 20,
-              }),
-            ],
-            alignment: AlignmentType.RIGHT,
-            spacing: { after: 300 },
-          }),
-          ...sections,
-        ],
+        properties: {
+          page: {
+            margin: {
+              top: 720,
+              right: 720,
+              bottom: 720,
+              left: 720,
+            },
+          },
+        },
+        children: allChildren,
       },
     ],
   });
 
   return await Packer.toBuffer(doc);
+}
+
+// 학습지 문제 렌더링 헬퍼
+function renderWorksheetQuestion(item: WorksheetContent['worksheet']['sections'][0]['questions'][0], stageColor: string): (Paragraph | Table)[] {
+  const elements: (Paragraph | Table)[] = [];
+  const questionNum = item.number || '';
+
+  // 문제 제목
+  elements.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: `${questionNum}. ${item.question}`,
+          bold: true,
+          size: 22,
+        }),
+      ],
+      spacing: { before: 250, after: 100 },
+      indent: { left: 100 },
+    })
+  );
+
+  // 타입별 처리
+  switch (item.type) {
+    case 'see_think_wonder':
+      // 보고-생각하고-궁금해하기
+      if (item.subQuestions) {
+        for (const sub of item.subQuestions) {
+          elements.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: sub.label, bold: true, size: 20 }),
+              ],
+              spacing: { before: 150, after: 50 },
+              indent: { left: 300 },
+            })
+          );
+          const lines = sub.lines || 2;
+          for (let i = 0; i < lines; i++) {
+            elements.push(createAnswerLine());
+          }
+        }
+      }
+      break;
+
+    case 'frayer_model':
+      // 프레이어 모델 (4분면 테이블)
+      if (item.quadrants) {
+        elements.push(createFrayerModelTable(item.quadrants, item.centerConcept || ''));
+      }
+      break;
+
+    case 'fill_blank':
+      // 빈칸 채우기
+      if (item.blanks) {
+        for (let i = 0; i < item.blanks.length; i++) {
+          elements.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: `(${i + 1}) ${item.blanks[i]}`, size: 20 }),
+              ],
+              spacing: { before: 100, after: 50 },
+              indent: { left: 400 },
+            })
+          );
+        }
+      }
+      break;
+
+    case 'investigation_table':
+    case 'compare_contrast_table':
+      // 탐구 기록표 / 비교 대조표
+      if (item.tableHeaders && item.rows) {
+        elements.push(createInvestigationTable(item.tableHeaders, item.rows));
+      }
+      if (item.note) {
+        elements.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: item.note, size: 18, italics: true, color: COLORS.lightText }),
+            ],
+            spacing: { before: 50 },
+            indent: { left: 300 },
+          })
+        );
+      }
+      break;
+
+    case 'pattern_finding':
+    case 'inquiry_start':
+      // 패턴 찾기 / 탐구 시작
+      if (item.subQuestions) {
+        for (const sub of item.subQuestions) {
+          elements.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: sub.label, bold: true, size: 20 }),
+              ],
+              spacing: { before: 150, after: 50 },
+              indent: { left: 300 },
+            })
+          );
+          if (sub.prompt) {
+            elements.push(
+              new Paragraph({
+                children: [
+                  new TextRun({ text: sub.prompt, size: 18, color: COLORS.lightText }),
+                ],
+                indent: { left: 400 },
+              })
+            );
+          }
+          const lines = sub.lines || 2;
+          for (let i = 0; i < lines; i++) {
+            elements.push(createAnswerLine());
+          }
+        }
+      }
+      break;
+
+    case 'concept_map':
+      // 개념 맵
+      elements.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: item.instructions || '가운데에 핵심 개념을 쓰고, 관련된 내용을 연결해 봅시다.', size: 18, italics: true }),
+          ],
+          indent: { left: 300 },
+          spacing: { after: 100 },
+        })
+      );
+      elements.push(createConceptMapSpace(item.centerConcept || ''));
+      break;
+
+    case 'headlines':
+    case 'class_consensus':
+      // 헤드라인 / 반 합의
+      if (item.prompt) {
+        elements.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: item.prompt, size: 18, color: COLORS.lightText }),
+            ],
+            indent: { left: 300 },
+          })
+        );
+      }
+      elements.push(createHighlightedBox(item.lines || 2, item.highlight));
+      break;
+
+    case 'generalization_builder':
+      // 빅 아이디어 만들기
+      if (item.template) {
+        elements.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: item.template, size: 18, italics: true, color: COLORS.secondary }),
+            ],
+            indent: { left: 300 },
+            spacing: { after: 100 },
+            shading: { type: ShadingType.CLEAR, fill: 'F3E8FF' },
+          })
+        );
+      }
+      if (item.steps) {
+        for (const step of item.steps) {
+          elements.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: step.label, bold: true, size: 20 }),
+                new TextRun({ text: ` ${step.hint || ''}`, size: 18, color: COLORS.lightText }),
+              ],
+              spacing: { before: 100 },
+              indent: { left: 300 },
+            })
+          );
+          for (let i = 0; i < (step.lines || 1); i++) {
+            elements.push(createAnswerLine());
+          }
+        }
+      }
+      if (item.finalStatement) {
+        elements.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: item.finalStatement.label, bold: true, size: 20, color: COLORS.primary }),
+            ],
+            spacing: { before: 150 },
+            indent: { left: 300 },
+          })
+        );
+        elements.push(createHighlightedBox(item.finalStatement.lines || 2, true));
+      }
+      break;
+
+    case 'transfer_thinking':
+      // 전이 생각하기
+      if (item.prompt) {
+        elements.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: item.prompt, size: 18, color: COLORS.lightText }),
+            ],
+            indent: { left: 300 },
+          })
+        );
+      }
+      for (let i = 0; i < (item.lines || 3); i++) {
+        elements.push(createAnswerLine());
+      }
+      break;
+
+    case 'grasps_understanding':
+      // GRASPS 이해하기
+      if (item.elements) {
+        for (const el of item.elements) {
+          elements.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: `${el.icon} ${el.label}: `, bold: true, size: 20 }),
+                new TextRun({ text: el.prompt, size: 18, color: COLORS.lightText }),
+              ],
+              spacing: { before: 100 },
+              indent: { left: 300 },
+            })
+          );
+          elements.push(createAnswerLine());
+        }
+      }
+      break;
+
+    case 'planning_sheet':
+      // 계획서
+      if (item.sections) {
+        for (const sec of item.sections) {
+          elements.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: sec.label, bold: true, size: 20 }),
+              ],
+              spacing: { before: 150 },
+              indent: { left: 300 },
+            })
+          );
+          for (let i = 0; i < (sec.lines || 2); i++) {
+            elements.push(createAnswerLine());
+          }
+        }
+      }
+      break;
+
+    case 'rubric_check':
+      // 자기 점검표
+      if (item.criteria) {
+        elements.push(createRubricTable(item.criteria));
+      }
+      break;
+
+    case 'thinking_change':
+      // 예전에는-지금은
+      if (item.before) {
+        elements.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: item.before.label, bold: true, size: 20 }),
+            ],
+            spacing: { before: 150 },
+            indent: { left: 300 },
+          })
+        );
+        for (let i = 0; i < (item.before.lines || 3); i++) {
+          elements.push(createAnswerLine());
+        }
+      }
+      if (item.after) {
+        elements.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: item.after.label, bold: true, size: 20 }),
+            ],
+            spacing: { before: 150 },
+            indent: { left: 300 },
+          })
+        );
+        for (let i = 0; i < (item.after.lines || 3); i++) {
+          elements.push(createAnswerLine());
+        }
+      }
+      if (item.reason) {
+        elements.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: item.reason.label, bold: true, size: 20 }),
+            ],
+            spacing: { before: 150 },
+            indent: { left: 300 },
+          })
+        );
+        for (let i = 0; i < (item.reason.lines || 2); i++) {
+          elements.push(createAnswerLine());
+        }
+      }
+      break;
+
+    case '3_2_1_summary':
+      // 3-2-1 정리
+      if (item.items) {
+        for (const it of item.items) {
+          elements.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: `${it.number} `, bold: true, size: 28, color: COLORS.primary }),
+                new TextRun({ text: it.label, bold: true, size: 20 }),
+              ],
+              spacing: { before: 150 },
+              indent: { left: 300 },
+            })
+          );
+          for (let i = 0; i < (it.subLines || 1); i++) {
+            elements.push(
+              new Paragraph({
+                children: [
+                  new TextRun({ text: `• `, size: 20 }),
+                  new TextRun({ text: '_'.repeat(70), size: 18, color: COLORS.lightText }),
+                ],
+                indent: { left: 500 },
+                spacing: { before: 50 },
+              })
+            );
+          }
+        }
+      }
+      break;
+
+    case 'self_assessment_table':
+      // 자기평가표
+      if (item.criteria) {
+        elements.push(createSelfAssessmentTable(item.criteria, item.scale));
+      }
+      break;
+
+    case 'final_reflection':
+    case 'summary':
+      // 최종 성찰 / 정리하기
+      if (item.subQuestions) {
+        for (const sub of item.subQuestions) {
+          elements.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: sub.label, bold: true, size: 20 }),
+              ],
+              spacing: { before: 150 },
+              indent: { left: 300 },
+            })
+          );
+          for (let i = 0; i < (sub.lines || 2); i++) {
+            elements.push(createAnswerLine());
+          }
+        }
+      }
+      break;
+
+    case 'experience_connection':
+    case 'initial_thinking':
+    case 'short_answer':
+    default:
+      // 기본 서술형
+      if (item.prompt) {
+        elements.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: item.prompt, size: 18, color: COLORS.lightText }),
+            ],
+            indent: { left: 300 },
+          })
+        );
+      }
+      const lines = item.lines || 3;
+      if (item.box) {
+        elements.push(createHighlightedBox(lines, item.highlight));
+      } else {
+        for (let i = 0; i < lines; i++) {
+          elements.push(createAnswerLine());
+        }
+      }
+      break;
+  }
+
+  return elements;
+}
+
+// 답안 작성 줄 생성
+function createAnswerLine(): Paragraph {
+  return new Paragraph({
+    children: [
+      new TextRun({
+        text: '_'.repeat(85),
+        size: 18,
+        color: COLORS.lightText,
+      }),
+    ],
+    spacing: { before: 80 },
+    indent: { left: 400 },
+  });
+}
+
+// 강조 박스 생성
+function createHighlightedBox(lines: number, highlight?: boolean): Paragraph {
+  const lineTexts: TextRun[] = [];
+  for (let i = 0; i < lines; i++) {
+    lineTexts.push(new TextRun({ text: '\n', size: 40 }));
+  }
+  return new Paragraph({
+    children: lineTexts,
+    spacing: { before: 100, after: 100 },
+    indent: { left: 300, right: 300 },
+    border: {
+      top: { style: BorderStyle.SINGLE, size: 8, color: highlight ? COLORS.primary : COLORS.lightText },
+      bottom: { style: BorderStyle.SINGLE, size: 8, color: highlight ? COLORS.primary : COLORS.lightText },
+      left: { style: BorderStyle.SINGLE, size: 8, color: highlight ? COLORS.primary : COLORS.lightText },
+      right: { style: BorderStyle.SINGLE, size: 8, color: highlight ? COLORS.primary : COLORS.lightText },
+    },
+    shading: highlight ? { type: ShadingType.CLEAR, fill: 'FEFCE8' } : undefined,
+  });
+}
+
+// 프레이어 모델 테이블 생성
+function createFrayerModelTable(quadrants: Array<{position: string; label: string; lines: number}>, centerConcept: string): Table {
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    layout: TableLayoutType.FIXED,
+    rows: [
+      new TableRow({
+        children: [
+          createFrayerCell(quadrants.find(q => q.position === 'top-left')?.label || '정의', quadrants.find(q => q.position === 'top-left')?.lines || 3),
+          createFrayerCell(quadrants.find(q => q.position === 'top-right')?.label || '특징', quadrants.find(q => q.position === 'top-right')?.lines || 3),
+        ],
+      }),
+      new TableRow({
+        children: [
+          new TableCell({
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: centerConcept, bold: true, size: 24, color: COLORS.primary }),
+                ],
+                alignment: AlignmentType.CENTER,
+              }),
+            ],
+            columnSpan: 2,
+            shading: { type: ShadingType.CLEAR, fill: 'EEF2FF' },
+            verticalAlign: VerticalAlign.CENTER,
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+              bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+              left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+              right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+            },
+          }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          createFrayerCell(quadrants.find(q => q.position === 'bottom-left')?.label || '예시', quadrants.find(q => q.position === 'bottom-left')?.lines || 3),
+          createFrayerCell(quadrants.find(q => q.position === 'bottom-right')?.label || '비예시', quadrants.find(q => q.position === 'bottom-right')?.lines || 3),
+        ],
+      }),
+    ],
+  });
+}
+
+function createFrayerCell(label: string, lines: number): TableCell {
+  const children: Paragraph[] = [
+    new Paragraph({
+      children: [
+        new TextRun({ text: label, bold: true, size: 18 }),
+      ],
+      spacing: { after: 50 },
+    }),
+  ];
+  for (let i = 0; i < lines; i++) {
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: '_'.repeat(35), size: 16, color: COLORS.lightText }),
+        ],
+        spacing: { before: 40 },
+      })
+    );
+  }
+  return new TableCell({
+    children,
+    width: { size: 50, type: WidthType.PERCENTAGE },
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+      left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+      right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+    },
+  });
+}
+
+// 탐구 기록표 생성
+function createInvestigationTable(headers: string[], rows: Array<{case?: string; item?: string; cells: string[]}>): Table {
+  const tableRows: TableRow[] = [];
+
+  // 헤더 행
+  tableRows.push(
+    new TableRow({
+      children: headers.map(h =>
+        new TableCell({
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: h, bold: true, size: 18 })],
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+          shading: { type: ShadingType.CLEAR, fill: 'F3F4F6' },
+          verticalAlign: VerticalAlign.CENTER,
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+            bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+            left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+            right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+          },
+        })
+      ),
+    })
+  );
+
+  // 데이터 행
+  for (const row of rows) {
+    const firstCell = row.case || row.item || '';
+    const cells = [firstCell, ...(row.cells || [])];
+
+    tableRows.push(
+      new TableRow({
+        children: cells.map((cell, idx) =>
+          new TableCell({
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: cell || '', size: 16 })],
+              }),
+              // 빈 셀에는 작성 공간 추가
+              ...(cell === '' ? [
+                new Paragraph({ children: [new TextRun({ text: '\n\n', size: 32 })] }),
+              ] : []),
+            ],
+            shading: idx === 0 ? { type: ShadingType.CLEAR, fill: 'FAFAFA' } : undefined,
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+              bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+              left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+              right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+            },
+          })
+        ),
+      })
+    );
+  }
+
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    layout: TableLayoutType.FIXED,
+    rows: tableRows,
+  });
+}
+
+// 개념 맵 공간 생성
+function createConceptMapSpace(centerConcept: string): Table {
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    layout: TableLayoutType.FIXED,
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: '\n\n', size: 40 })],
+              }),
+              new Paragraph({
+                children: [
+                  new TextRun({ text: centerConcept, bold: true, size: 24, color: COLORS.primary }),
+                ],
+                alignment: AlignmentType.CENTER,
+                border: {
+                  top: { style: BorderStyle.SINGLE, size: 8, color: COLORS.primary },
+                  bottom: { style: BorderStyle.SINGLE, size: 8, color: COLORS.primary },
+                  left: { style: BorderStyle.SINGLE, size: 8, color: COLORS.primary },
+                  right: { style: BorderStyle.SINGLE, size: 8, color: COLORS.primary },
+                },
+              }),
+              new Paragraph({
+                children: [new TextRun({ text: '\n\n\n\n', size: 40 })],
+              }),
+            ],
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+              bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+              left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+              right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText },
+            },
+          }),
+        ],
+      }),
+    ],
+  });
+}
+
+// 루브릭 점검표 생성
+function createRubricTable(criteria: Array<{item: string; options?: string[]}>): Table {
+  const defaultOptions = ['⭐⭐⭐', '⭐⭐', '⭐'];
+
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    layout: TableLayoutType.FIXED,
+    rows: [
+      // 헤더
+      new TableRow({
+        children: [
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: '평가 항목', bold: true, size: 18 })], alignment: AlignmentType.CENTER })],
+            shading: { type: ShadingType.CLEAR, fill: 'F3F4F6' },
+            width: { size: 60, type: WidthType.PERCENTAGE },
+            borders: { top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText } },
+          }),
+          ...defaultOptions.map(opt =>
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: opt, size: 16 })], alignment: AlignmentType.CENTER })],
+              shading: { type: ShadingType.CLEAR, fill: 'F3F4F6' },
+              borders: { top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText } },
+            })
+          ),
+        ],
+      }),
+      // 기준 행들
+      ...criteria.map(c =>
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: c.item, size: 18 })] })],
+              borders: { top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText } },
+            }),
+            ...defaultOptions.map(() =>
+              new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text: '○', size: 20 })], alignment: AlignmentType.CENTER })],
+                borders: { top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText } },
+              })
+            ),
+          ],
+        })
+      ),
+    ],
+  });
+}
+
+// 자기평가표 생성
+function createSelfAssessmentTable(criteria: Array<{item: string}>, scale?: string[]): Table {
+  const scaleLabels = scale || ['⭐⭐⭐ 잘함', '⭐⭐ 보통', '⭐ 노력요함'];
+
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    layout: TableLayoutType.FIXED,
+    rows: [
+      // 헤더
+      new TableRow({
+        children: [
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: '평가 항목', bold: true, size: 18 })], alignment: AlignmentType.CENTER })],
+            shading: { type: ShadingType.CLEAR, fill: 'F3F4F6' },
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            borders: { top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText } },
+          }),
+          ...scaleLabels.map(label =>
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: label, size: 14 })], alignment: AlignmentType.CENTER })],
+              shading: { type: ShadingType.CLEAR, fill: 'F3F4F6' },
+              borders: { top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText } },
+            })
+          ),
+        ],
+      }),
+      // 기준 행들
+      ...criteria.map(c =>
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: c.item, size: 18 })] })],
+              borders: { top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText } },
+            }),
+            ...scaleLabels.map(() =>
+              new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text: '○', size: 20 })], alignment: AlignmentType.CENTER })],
+                borders: { top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText }, right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.lightText } },
+              })
+            ),
+          ],
+        })
+      ),
+    ],
+  });
 }
 
 // 헬퍼 함수들 - 테이블 너비 수정 (전체 너비 100%)

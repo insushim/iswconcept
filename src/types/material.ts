@@ -84,11 +84,19 @@ export interface PPTXContent {
   designTheme: PPTXTheme;
 }
 
-// 학습지 관련 타입
+// 학습지 관련 타입 - CBI 7단계 탐구 학습지 지원
 export interface WorksheetQuestion {
   id: string;
   number: number;
-  type: 'short_answer' | 'long_answer' | 'multiple_choice' | 'fill_blank' | 'matching' | 'drawing' | 'table' | 'graphic_organizer' | 'sentence_completion' | 'reflection' | 'self_assessment';
+  type:
+    | 'short_answer' | 'long_answer' | 'multiple_choice' | 'fill_blank' | 'matching' | 'drawing'
+    | 'table' | 'graphic_organizer' | 'sentence_completion' | 'reflection' | 'self_assessment'
+    // CBI 학습지 전용 타입들
+    | 'see_think_wonder' | 'frayer_model' | 'investigation_table' | 'compare_contrast_table'
+    | 'pattern_finding' | 'inquiry_start' | 'concept_map' | 'headlines' | 'class_consensus'
+    | 'generalization_builder' | 'transfer_thinking' | 'grasps_understanding' | 'planning_sheet'
+    | 'rubric_check' | 'thinking_change' | '3_2_1_summary' | 'self_assessment_table'
+    | 'final_reflection' | 'summary' | 'experience_connection' | 'initial_thinking';
   question: string;
   options?: string[];
   answerSpace?: 'small' | 'medium' | 'large';
@@ -99,14 +107,32 @@ export interface WorksheetQuestion {
   leftItems?: string[];
   rightItems?: string[];
   tableHeaders?: string[];
-  rows?: number;
+  rows?: Array<{case?: string; item?: string; cells: string[]}>;
   organizerType?: string;
   centralConcept?: string;
   branches?: number;
   starter?: string;
   prompts?: string[];
-  criteria?: string[];
+  criteria?: Array<{item: string; options?: string[]}>;
   scale?: string[];
+  // CBI 학습지 전용 필드들
+  subQuestions?: Array<{label: string; lines?: number; prompt?: string}>;
+  quadrants?: Array<{position: string; label: string; lines: number}>;
+  centerConcept?: string;
+  note?: string;
+  instructions?: string;
+  prompt?: string;
+  box?: boolean;
+  highlight?: boolean;
+  template?: string;
+  steps?: Array<{label: string; hint?: string; lines?: number}>;
+  finalStatement?: {label: string; lines?: number; highlight?: boolean};
+  elements?: Array<{icon: string; label: string; prompt: string; lines?: number}>;
+  sections?: Array<{label: string; lines?: number}>;
+  before?: {label: string; lines?: number};
+  after?: {label: string; lines?: number};
+  reason?: {label: string; lines?: number};
+  items?: Array<{number: string; label: string; subLines?: number}>;
 }
 
 export interface WorksheetSection {
@@ -116,20 +142,30 @@ export interface WorksheetSection {
   stage: string;
   instructions: string;
   questions: WorksheetQuestion[];
+  // CBI 학습지 전용 필드들
+  periods?: string;
+  phase?: string;
+  stageColor?: string;
 }
 
 export interface WorksheetHeader {
   title: string;
-  subtitle: string;
-  subject: string;
-  grade: string;
-  studentNameField: boolean;
-  dateField: boolean;
+  subtitle?: string;
+  subject?: string;
+  grade?: string;
+  studentNameField?: boolean;
+  dateField?: boolean;
+  classField?: boolean;
+  // CBI 학습지 전용 필드들
+  totalPeriods?: string;
+  conceptLens?: string;
 }
 
 export interface WorksheetFooter {
-  teacherComment: boolean;
-  parentSignature: boolean;
+  teacherComment?: boolean;
+  teacherCommentPrompt?: string;
+  parentSignature?: boolean;
+  portfolioNote?: string;
 }
 
 export interface Worksheet {
