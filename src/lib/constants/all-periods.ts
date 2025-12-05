@@ -3,6 +3,7 @@ import { UnitLessons, LessonPeriod, SCIENCE_LESSONS } from './lesson-periods';
 import { MATH_LESSONS } from './math-periods';
 import { OTHER_LESSONS } from './other-periods';
 import { UNITS } from './curriculum-data';
+import { getAccuratePeriodCount } from './accurate-periods';
 
 // 전체 차시 데이터 통합
 export const ALL_LESSONS: Record<string, UnitLessons> = {
@@ -231,21 +232,21 @@ export const getPeriodsForUnitName = (unitName: string, subject: string, grade: 
     }
   }
 
-  // 기존 데이터에 없으면 curriculum-data에서 단원 ID 찾아서 기본 차시 생성
+  // 기존 데이터에 없으면 정확한 차시 데이터에서 조회
+  const accuratePeriodCount = getAccuratePeriodCount(subject, grade, unitName);
+
   const subjectKey = `${subject}_${grade}`;
   const units = UNITS[subjectKey];
   if (units) {
     const unit = units.find(u => u.name === unitName);
     if (unit) {
-      // 단원별 기본 차시 수 (대부분 4~8차시)
-      const defaultPeriodCount = 6;
-      return generateDefaultPeriods(unit.id, unitName, defaultPeriodCount, subject, grade);
+      return generateDefaultPeriods(unit.id, unitName, accuratePeriodCount, subject, grade);
     }
   }
 
-  // 그래도 못 찾으면 기본 6차시 반환
+  // 그래도 못 찾으면 정확한 차시 수로 반환
   const fallbackId = `${prefix}_${grade}_default`;
-  return generateDefaultPeriods(fallbackId, unitName, 6, subject, grade);
+  return generateDefaultPeriods(fallbackId, unitName, accuratePeriodCount, subject, grade);
 };
 
 // 특정 차시 정보 조회
