@@ -72,6 +72,7 @@ export default function AuthLayout({
                 { icon: '1', title: '기본 정보만 입력', desc: '학년, 과목, 단원, 학습목표' },
                 { icon: '2', title: 'AI 자동 생성', desc: '7단계 수업 자동 설계' },
                 { icon: '3', title: '자료 다운로드', desc: '지도안, 대본, PPT, 학습지' },
+                { icon: '4', title: '선생님 공유 자료실', desc: '다른 선생님들이 공유한 수업자료 활용' },
               ].map((feature, index) => (
                 <div
                   key={index}

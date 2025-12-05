@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Mail, Lock, ArrowRight, BookOpen } from 'lucide-react';
+import { Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -165,20 +165,6 @@ function LoginForm() {
           회원가입
         </Link>
       </p>
-
-      {/* Shared Library link */}
-      <Link href="/library" className="block">
-        <div className="flex items-center justify-center gap-3 p-4 rounded-xl bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20 hover:border-violet-500/40 transition-all group cursor-pointer">
-          <div className="p-2 rounded-lg bg-violet-500/20">
-            <BookOpen className="h-5 w-5 text-violet-600" />
-          </div>
-          <div className="text-left">
-            <p className="font-medium text-sm">선생님 공유 자료실</p>
-            <p className="text-xs text-muted-foreground">다른 선생님들이 공유한 수업 자료 보기</p>
-          </div>
-          <ArrowRight className="h-4 w-4 text-violet-600 group-hover:translate-x-1 transition-transform" />
-        </div>
-      </Link>
     </div>
   );
 }
