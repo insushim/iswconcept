@@ -53,32 +53,43 @@ function EditPageContent() {
     const fetchLesson = async () => {
       try {
         const lessonId = params.id as string;
+        console.log('Fetching lesson:', lessonId);
 
         // Firebase에서 직접 데이터 가져오기
         const lessonData = await getLesson(lessonId);
+        console.log('Lesson data:', lessonData);
+
         if (!lessonData) {
           throw new Error('수업을 찾을 수 없습니다.');
         }
 
-        const materialsData = await getMaterialsByLesson(lessonId);
-
         setLesson(lessonData);
-        setMaterials(materialsData);
         setEditedLesson(lessonData);
 
-        // 자료 내용 초기화
-        const materialContents: Record<string, unknown> = {};
-        for (const material of materialsData) {
-          materialContents[material.type] = material.content;
+        // Material 조회 (실패해도 계속 진행)
+        try {
+          const materialsData = await getMaterialsByLesson(lessonId);
+          console.log('Materials data:', materialsData);
+          setMaterials(materialsData);
+
+          // 자료 내용 초기화
+          const materialContents: Record<string, unknown> = {};
+          for (const material of materialsData) {
+            materialContents[material.type] = material.content;
+          }
+          setEditedMaterials(materialContents);
+        } catch (materialError) {
+          console.error('Failed to load materials:', materialError);
+          // Material 로딩 실패해도 수업 편집은 가능하게 함
         }
-        setEditedMaterials(materialContents);
       } catch (error) {
+        console.error('Failed to load lesson:', error);
         toast({
           title: '오류',
           description: error instanceof Error ? error.message : '수업을 불러올 수 없습니다.',
           variant: 'destructive',
         });
-        router.push('/dashboard');
+        router.push('/materials');
       } finally {
         setLoading(false);
       }

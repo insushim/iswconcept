@@ -257,13 +257,17 @@ export function LessonForm() {
         variant: 'success',
       });
 
-      // 수업 설계 자료 저장 (백그라운드에서 처리)
+      // 수업 설계 자료 저장 (백그라운드에서 처리 - 페이지 이동에 영향 없음)
       createMaterial(lessonId, 'lesson_plan', '교수학습지도안', lessonDesign)
         .then(() => console.log('Material created for lesson:', lessonId))
         .catch((err) => console.error('Failed to save material:', err));
 
-      // 생성된 수업 페이지로 이동
-      router.push(`/lesson/${lessonId}`);
+      console.log('Redirecting to:', `/lesson/${lessonId}`);
+
+      // 약간의 지연 후 페이지 이동 (상태 업데이트 완료 대기)
+      setTimeout(() => {
+        window.location.href = `/lesson/${lessonId}`;
+      }, 100);
     } catch (error) {
       console.error('Generation error:', error);
       setError(error instanceof Error ? error.message : '수업 생성 중 오류가 발생했습니다.');
