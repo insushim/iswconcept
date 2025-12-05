@@ -359,10 +359,10 @@ export async function getGenerationHistory(userId: string, limitCount: number = 
   }
 
   const batchResults = await Promise.all(batchPromises);
-  const results = batchResults.flat();
+  const results = batchResults.flat() as { created_at: string }[];
 
   // 날짜순 정렬 후 limit 적용
-  results.sort((a: { created_at: string }, b: { created_at: string }) =>
+  results.sort((a, b) =>
     new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
