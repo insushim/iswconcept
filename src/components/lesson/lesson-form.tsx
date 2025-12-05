@@ -15,9 +15,11 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { PUBLISHERS, GRADES, getSubjectsForGrade, getUnitsForSubjectAndGrade, getPublishersForSubjectAndGrade } from '@/lib/constants/curriculum-data';
-import { Loader2, Sparkles, CheckCircle, Circle } from 'lucide-react';
+import { getPeriodsForUnitName } from '@/lib/constants/all-periods';
+import { Loader2, Sparkles, CheckCircle, Circle, BookOpen } from 'lucide-react';
 import { useLessonStore } from '@/stores/lesson-store';
 import { auth } from '@/lib/firebase/config';
 import { createLesson, createMaterial } from '@/lib/firebase/firestore';
@@ -37,12 +39,16 @@ export function LessonForm() {
     grade: '',
     subject: '',
     unit: '',
-    unitId: '',
-    period: '',
-    duration: '40',
     objectives: '',
     achievementStandards: '',
   });
+
+  // 단원 정보 (총 차시 수 등)
+  const [unitInfo, setUnitInfo] = useState<{
+    totalPeriods: number;
+    objectives: string[];
+    achievementStandards: string[];
+  } | null>(null);
 
   const subjects = formData.grade ? getSubjectsForGrade(parseInt(formData.grade)) : [];
   const units = formData.subject && formData.grade ? getUnitsForSubjectAndGrade(formData.subject, formData.grade) : [];
@@ -64,6 +70,43 @@ export function LessonForm() {
       }
     }
   }, [formData.subject, formData.grade]);
+
+  // 단원 선택 시 자동으로 차시 정보, 학습목표, 성취기준 가져오기
+  useEffect(() => {
+    if (formData.unit && formData.subject && formData.grade) {
+      const periods = getPeriodsForUnitName(formData.unit, formData.subject, formData.grade);
+      if (periods.length > 0) {
+        // 모든 차시의 학습목표와 성취기준 통합
+        const allObjectives = periods.flatMap(p => p.objectives);
+        const allAchievements = periods.flatMap(p => p.achievementStandards);
+
+        // 중복 제거
+        const uniqueObjectives = [...new Set(allObjectives)];
+        const uniqueAchievements = [...new Set(allAchievements)];
+
+        setUnitInfo({
+          totalPeriods: periods.length,
+          objectives: uniqueObjectives,
+          achievementStandards: uniqueAchievements,
+        });
+
+        // 폼에 자동 입력
+        setFormData(prev => ({
+          ...prev,
+          objectives: uniqueObjectives.join('\n'),
+          achievementStandards: uniqueAchievements.join('\n'),
+        }));
+
+        toast({
+          title: '단원 정보 로드 완료',
+          description: `${periods.length}차시 단원, 학습목표와 성취기준이 자동 입력되었습니다.`,
+          variant: 'success',
+        });
+      }
+    } else {
+      setUnitInfo(null);
+    }
+  }, [formData.unit, formData.subject, formData.grade]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,6 +160,7 @@ export function LessonForm() {
       };
 
       // API 호출 (AI 생성)
+      const totalPeriods = unitInfo?.totalPeriods || 10;
       const response = await fetch('/api/lesson/generate', {
         method: 'POST',
         headers: {
@@ -128,8 +172,8 @@ export function LessonForm() {
           grade: parseInt(formData.grade),
           subject: formData.subject,
           unit: formData.unit || '단원 미지정',
-          totalPeriods: parseInt(formData.period) || 10,
-          duration: parseInt(formData.duration),
+          totalPeriods,
+          duration: 40, // 1차시당 40분 고정
           objectives: formData.objectives.split('\n').filter((o) => o.trim()),
           achievementStandards: formData.achievementStandards
             ? formData.achievementStandards.split('\n').filter((s) => s.trim())
@@ -161,8 +205,8 @@ export function LessonForm() {
         subject_id: formData.subject,
         unit_id: formData.unit,
         grade: parseInt(formData.grade),
-        class_period: parseInt(formData.period) || 10,
-        duration: parseInt(formData.duration),
+        class_period: totalPeriods,
+        duration: 40,
         learning_objectives: formData.objectives.split('\n').filter((o) => o.trim()),
         achievement_standards: formData.achievementStandards?.split('\n').filter((s) => s.trim()) || [],
         core_concepts: lessonDesign.unitOverview?.conceptLens ? [lessonDesign.unitOverview.conceptLens] : lessonDesign.lessonOverview?.coreConcepts || [],
@@ -286,7 +330,7 @@ export function LessonForm() {
               <Select
                 value={formData.grade}
                 onValueChange={(value) =>
-                  setFormData({ ...formData, grade: value, subject: '', unit: '', period: '' })
+                  setFormData({ ...formData, grade: value, subject: '', unit: '' })
                 }
                 disabled={isGenerating}
               >
@@ -307,7 +351,7 @@ export function LessonForm() {
               <Label htmlFor="subject">과목</Label>
               <Select
                 value={formData.subject}
-                onValueChange={(value) => setFormData({ ...formData, subject: value, unit: '', period: '' })}
+                onValueChange={(value) => setFormData({ ...formData, subject: value, unit: '' })}
                 disabled={!formData.grade || isGenerating}
               >
                 <SelectTrigger>
@@ -328,7 +372,7 @@ export function LessonForm() {
               {units.length > 0 ? (
                 <Select
                   value={formData.unit}
-                  onValueChange={(value) => setFormData({ ...formData, unit: value, period: '' })}
+                  onValueChange={(value) => setFormData({ ...formData, unit: value })}
                   disabled={!formData.subject || isGenerating}
                 >
                   <SelectTrigger>
@@ -352,63 +396,49 @@ export function LessonForm() {
                 />
               )}
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="period">총 차시 수</Label>
-              <Select
-                value={formData.period}
-                onValueChange={(value) => setFormData({ ...formData, period: value })}
-                disabled={isGenerating}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="총 차시 수 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="6">6차시 단원</SelectItem>
-                  <SelectItem value="8">8차시 단원</SelectItem>
-                  <SelectItem value="10">10차시 단원</SelectItem>
-                  <SelectItem value="12">12차시 단원</SelectItem>
-                  <SelectItem value="14">14차시 단원</SelectItem>
-                  <SelectItem value="16">16차시 단원</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                단원 전체 차시를 7단계로 배분합니다
+          {/* 단원 정보 표시 */}
+          {unitInfo && (
+            <div className="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <BookOpen className="h-4 w-4 text-indigo-600" />
+                <h4 className="font-medium text-indigo-900">단원 정보</h4>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-100">
+                  총 {unitInfo.totalPeriods}차시
+                </Badge>
+                <Badge variant="outline" className="text-indigo-600 border-indigo-300">
+                  1차시 = 40분
+                </Badge>
+              </div>
+              <p className="mt-2 text-xs text-indigo-600">
+                단원 전체 {unitInfo.totalPeriods}차시를 7단계(관계맺기→집중하기→조사하기→조직및정리하기→일반화하기→전이하기→성찰하기)로 배분합니다.
               </p>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="duration">수업 시간 (분)</Label>
-              <Select
-                value={formData.duration}
-                onValueChange={(value) => setFormData({ ...formData, duration: value })}
-                disabled={isGenerating}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="수업 시간 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="40">40분 (1차시)</SelectItem>
-                  <SelectItem value="80">80분 (2차시 블록)</SelectItem>
-                  <SelectItem value="120">120분 (3차시 블록)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
       {/* 학습 목표 */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">학습 목표</CardTitle>
+          <CardTitle className="flex items-center justify-between text-lg">
+            <span>학습 목표</span>
+            {unitInfo && (
+              <Badge variant="outline" className="text-xs font-normal text-green-600 border-green-300">
+                단원 데이터에서 자동 로드됨
+              </Badge>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="objectives">학습 목표 (줄바꿈으로 구분) *</Label>
             <Textarea
               id="objectives"
-              placeholder={`예시:\n기후 변화가 생태계에 미치는 영향을 설명할 수 있다.\n생물 다양성의 중요성을 이해하고 보전 방안을 제안할 수 있다.`}
+              placeholder={`단원을 선택하면 자동으로 학습목표가 입력됩니다.\n\n또는 직접 입력:\n기후 변화가 생태계에 미치는 영향을 설명할 수 있다.\n생물 다양성의 중요성을 이해하고 보전 방안을 제안할 수 있다.`}
               className="min-h-[120px]"
               value={formData.objectives}
               onChange={(e) => setFormData({ ...formData, objectives: e.target.value })}
@@ -417,10 +447,10 @@ export function LessonForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="achievementStandards">성취기준 (선택, 줄바꿈으로 구분)</Label>
+            <Label htmlFor="achievementStandards">성취기준 (줄바꿈으로 구분)</Label>
             <Textarea
               id="achievementStandards"
-              placeholder={`예시:\n[6과03-01] 생물다양성의 의미를 설명할 수 있다.\n[6과03-02] 환경 변화가 생물에 미치는 영향을 탐구할 수 있다.`}
+              placeholder={`단원을 선택하면 자동으로 성취기준이 입력됩니다.\n\n또는 직접 입력:\n[6과03-01] 생물다양성의 의미를 설명할 수 있다.\n[6과03-02] 환경 변화가 생물에 미치는 영향을 탐구할 수 있다.`}
               className="min-h-[100px]"
               value={formData.achievementStandards}
               onChange={(e) => setFormData({ ...formData, achievementStandards: e.target.value })}
