@@ -2,7 +2,7 @@ import type { LessonInput } from '@/types/lesson';
 
 export const generateLessonPlanPrompt = (input: LessonInput): string => {
   // 차시 배분 계산 (총 차시를 7단계에 배분)
-  const totalPeriods = input.period;
+  const totalPeriods = input.totalPeriods;
   const periodDistribution = calculatePeriodDistribution(totalPeriods);
 
   return `당신은 전라북도 초등학교 교사를 위한 개념기반탐구(CBI) 수업설계 전문가 AI입니다.
@@ -12,7 +12,13 @@ Rachel French와 Carla Marshall의 개념기반 탐구학습 모형을 기반으
 
 ## 핵심 설계 원칙
 1. **개념 렌즈**: 단원을 관통하는 추상적 핵심 개념 (변화, 관계, 시스템, 패턴, 책임 등)
-2. **일반화**: 시간과 공간을 초월하여 전이 가능한 보편적 진술
+2. **일반화** (매우 중요!):
+   - 시간과 공간을 초월하여 전이 가능한 보편적 진술
+   - **반드시 학생의 실제 경험, 일상생활과 연결되어야 함**
+   - 학생이 "아, 이게 내 생활에서 이렇게 적용되는구나!"라고 느낄 수 있어야 함
+   - 예시: "우리 가족도 환경을 보호하기 위해 작은 실천을 할 수 있다"
+   - 예시: "친구들과의 약속도 규칙처럼 지켜야 서로 믿을 수 있다"
+   - 예시: "내가 사용하는 물건들도 누군가의 노력으로 만들어진 것이다"
 3. **탐구질문 3단계**:
    - (사) 사실적 질문: "~은/는 무엇인가요?" 정답이 있는 확인 질문
    - (개) 개념적 질문: "왜 ~할까요?" 개념 간 관계를 묻는 질문
@@ -52,9 +58,9 @@ Rachel French와 Carla Marshall의 개념기반 탐구학습 모형을 기반으
     "coreConcepts": ["개념 렌즈 (핵심 추상 개념)"],
     "relatedConcepts": ["관련 개념 1", "관련 개념 2", "관련 개념 3"],
     "bigIdeas": [
-      "일반화 1 - 시간과 공간을 초월해 전이 가능한 진술",
-      "일반화 2",
-      "일반화 3"
+      "일반화 1 - 학생의 일상생활/경험과 연결된 보편적 진술 (예: 우리 생활에서도 ~을 통해 ~할 수 있다)",
+      "일반화 2 - 학생이 실제로 경험하거나 적용할 수 있는 진술",
+      "일반화 3 - 학교, 가정, 지역사회에서 적용 가능한 진술"
     ],
     "guidingQuestions": {
       "factual": ["(사) 사실적 질문 1", "(사) 사실적 질문 2", "(사) 사실적 질문 3"],
@@ -69,7 +75,7 @@ Rachel French와 Carla Marshall의 개념기반 탐구학습 모형을 기반으
     "unitName": "${input.unit}",
     "totalPeriods": ${totalPeriods},
     "curriculumKeyIdea": "교육과정 성취기준에서 추출한 해당 영역의 핵심 아이디어 (1-2문장)",
-    "unitKeyIdea": "이 단원에서 학생들이 도달해야 할 개념적 이해 (일반화 문장)",
+    "unitKeyIdea": "이 단원에서 학생들이 도달해야 할 개념적 이해 (학생의 경험/생활과 연결된 일반화 문장)",
     "coreCompetencies": [
       {"name": "역량명1", "description": "구체적 설명"},
       {"name": "역량명2", "description": "구체적 설명"},
@@ -86,7 +92,7 @@ Rachel French와 Carla Marshall의 개념기반 탐구학습 모형을 기반으
     },
     "generalizations": [
       {
-        "generalization": "일반화 문장 1",
+        "generalization": "일반화 문장 1 - 반드시 학생의 일상생활/경험과 연결! (예: 우리 반에서도/우리 가족도/내 친구들과도...)",
         "inquiryQuestions": {
           "factual": ["(사) 관련 사실적 질문"],
           "conceptual": ["(개) 관련 개념적 질문"],
@@ -94,7 +100,7 @@ Rachel French와 Carla Marshall의 개념기반 탐구학습 모형을 기반으
         }
       },
       {
-        "generalization": "일반화 문장 2",
+        "generalization": "일반화 문장 2 - 학생이 직접 경험하거나 실천할 수 있는 내용",
         "inquiryQuestions": {
           "factual": ["(사) 관련 사실적 질문"],
           "conceptual": ["(개) 관련 개념적 질문"],
@@ -102,7 +108,7 @@ Rachel French와 Carla Marshall의 개념기반 탐구학습 모형을 기반으
         }
       },
       {
-        "generalization": "일반화 문장 3",
+        "generalization": "일반화 문장 3 - 학교, 가정, 지역사회에서 적용 가능한 진술",
         "inquiryQuestions": {
           "factual": ["(사) 관련 사실적 질문"],
           "conceptual": ["(개) 관련 개념적 질문"],
@@ -425,6 +431,10 @@ Rachel French와 Carla Marshall의 개념기반 탐구학습 모형을 기반으
 4. **전이 강조**: 배운 개념을 새로운 상황에 적용할 수 있어야 합니다.
 5. **학생 중심**: 학생의 능동적 참여를 유도합니다.
 6. **차시 배분**: 각 단계에 적절한 차시를 배분하세요.
+7. **일반화는 학생 생활과 연결** (매우 중요!):
+   - 모든 일반화 문장은 학생의 실제 경험, 일상생활과 연결되어야 합니다.
+   - "우리 반에서도...", "우리 가족도...", "내가 친구와...", "학교에서..." 등의 표현 사용
+   - 학생이 "이게 내 생활에서 어떻게 적용되는지" 바로 이해할 수 있어야 합니다.
 
 ${input.grade}학년 수준에 맞는 용어와 활동을 사용하세요.
 반드시 유효한 JSON 형식으로만 응답하세요.`;

@@ -17,8 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { toast } from '@/hooks/use-toast';
 import { PUBLISHERS, GRADES, getSubjectsForGrade, getUnitsForSubjectAndGrade, getPublishersForSubjectAndGrade } from '@/lib/constants/curriculum-data';
-import { getPeriodsForUnitName, LessonPeriod } from '@/lib/constants/all-periods';
-import { Loader2, Sparkles, CheckCircle, Circle, Wand2 } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle, Circle } from 'lucide-react';
 import { useLessonStore } from '@/stores/lesson-store';
 import { auth } from '@/lib/firebase/config';
 import { createLesson, createMaterial } from '@/lib/firebase/firestore';
@@ -45,50 +44,12 @@ export function LessonForm() {
     achievementStandards: '',
   });
 
-  const [availablePeriods, setAvailablePeriods] = useState<LessonPeriod[]>([]);
-  const [selectedPeriodInfo, setSelectedPeriodInfo] = useState<LessonPeriod | null>(null);
-
   const subjects = formData.grade ? getSubjectsForGrade(parseInt(formData.grade)) : [];
   const units = formData.subject && formData.grade ? getUnitsForSubjectAndGrade(formData.subject, formData.grade) : [];
   // 과목과 학년에 따른 사용 가능한 출판사 목록
   const availablePublishers = formData.subject && formData.grade
     ? getPublishersForSubjectAndGrade(formData.subject, parseInt(formData.grade))
     : PUBLISHERS;
-
-  // 단원이 변경되면 차시 목록 업데이트
-  useEffect(() => {
-    if (formData.unit && formData.subject && formData.grade) {
-      const periods = getPeriodsForUnitName(formData.unit, formData.subject, formData.grade);
-      setAvailablePeriods(periods);
-      // 단원 변경 시 차시 초기화
-      setFormData(prev => ({ ...prev, period: '' }));
-      setSelectedPeriodInfo(null);
-    } else {
-      setAvailablePeriods([]);
-      setSelectedPeriodInfo(null);
-    }
-  }, [formData.unit, formData.subject, formData.grade]);
-
-  // 차시가 변경되면 해당 차시 정보 업데이트 및 자동 입력
-  useEffect(() => {
-    if (formData.period && availablePeriods.length > 0) {
-      const periodNum = parseInt(formData.period);
-      const periodInfo = availablePeriods.find(p => p.period === periodNum);
-      setSelectedPeriodInfo(periodInfo || null);
-
-      // 차시 정보가 있고 학습목표가 있으면 자동 입력
-      if (periodInfo && periodInfo.objectives.length > 0) {
-        setFormData(prev => ({
-          ...prev,
-          objectives: periodInfo.objectives.join('\n'),
-          achievementStandards: periodInfo.achievementStandards.join('\n'),
-          duration: periodInfo.duration.toString(),
-        }));
-      }
-    } else {
-      setSelectedPeriodInfo(null);
-    }
-  }, [formData.period, availablePeriods]);
 
   // 과목/학년 변경 시 출판사 자동 선택 (국정교과서인 경우)
   useEffect(() => {
@@ -103,23 +64,6 @@ export function LessonForm() {
       }
     }
   }, [formData.subject, formData.grade]);
-
-  // 차시 정보로 학습목표/성취기준 자동 채우기
-  const fillFromPeriodInfo = () => {
-    if (selectedPeriodInfo) {
-      setFormData(prev => ({
-        ...prev,
-        objectives: selectedPeriodInfo.objectives.join('\n'),
-        achievementStandards: selectedPeriodInfo.achievementStandards.join('\n'),
-        duration: selectedPeriodInfo.duration.toString(),
-      }));
-      toast({
-        title: '자동 입력 완료',
-        description: `${selectedPeriodInfo.title}의 학습목표와 성취기준이 입력되었습니다.`,
-        variant: 'success',
-      });
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,7 +128,7 @@ export function LessonForm() {
           grade: parseInt(formData.grade),
           subject: formData.subject,
           unit: formData.unit || '단원 미지정',
-          period: parseInt(formData.period) || 1,
+          totalPeriods: parseInt(formData.period) || 10,
           duration: parseInt(formData.duration),
           objectives: formData.objectives.split('\n').filter((o) => o.trim()),
           achievementStandards: formData.achievementStandards
@@ -212,18 +156,18 @@ export function LessonForm() {
 
       let lessonId: string;
       const lessonData = {
-        title: lessonDesign.lessonOverview?.title || `${formData.subject} ${formData.unit} ${formData.period}차시`,
+        title: lessonDesign.unitOverview?.title || lessonDesign.lessonOverview?.title || `${formData.subject} ${formData.unit}`,
         publisher_id: formData.publisher,
         subject_id: formData.subject,
         unit_id: formData.unit,
         grade: parseInt(formData.grade),
-        class_period: parseInt(formData.period) || 1,
+        class_period: parseInt(formData.period) || 10,
         duration: parseInt(formData.duration),
         learning_objectives: formData.objectives.split('\n').filter((o) => o.trim()),
         achievement_standards: formData.achievementStandards?.split('\n').filter((s) => s.trim()) || [],
-        core_concepts: lessonDesign.lessonOverview?.coreConcepts || [],
-        related_concepts: lessonDesign.lessonOverview?.relatedConcepts || [],
-        big_ideas: lessonDesign.lessonOverview?.bigIdeas || [],
+        core_concepts: lessonDesign.unitOverview?.conceptLens ? [lessonDesign.unitOverview.conceptLens] : lessonDesign.lessonOverview?.coreConcepts || [],
+        related_concepts: lessonDesign.unitOverview?.relatedConcepts || lessonDesign.lessonOverview?.relatedConcepts || [],
+        big_ideas: lessonDesign.unitOverview?.unitKeyIdea ? [lessonDesign.unitOverview.unitKeyIdea] : lessonDesign.lessonOverview?.bigIdeas || [],
         factual_questions: lessonDesign.lessonOverview?.guidingQuestions?.factual || [],
         conceptual_questions: lessonDesign.lessonOverview?.guidingQuestions?.conceptual || [],
         debatable_questions: lessonDesign.lessonOverview?.guidingQuestions?.debatable || [],
@@ -234,6 +178,8 @@ export function LessonForm() {
         stage_generalize: lessonDesign.stages?.generalize || {},
         stage_transfer: lessonDesign.stages?.transfer || {},
         stage_reflect: lessonDesign.stages?.reflect || {},
+        unit_overview: lessonDesign.unitOverview || null,
+        unit_assessment: lessonDesign.unitAssessment || null,
         assessment_plan: lessonDesign.assessmentPlan || {},
         preparation: lessonDesign.preparation || [],
         safety_notes: lessonDesign.safetyNotes || [],
@@ -408,35 +354,27 @@ export function LessonForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="period">차시</Label>
-              {availablePeriods.length > 0 ? (
-                <Select
-                  value={formData.period}
-                  onValueChange={(value) => setFormData({ ...formData, period: value })}
-                  disabled={!formData.unit || isGenerating}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="차시 선택" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {availablePeriods.map((period) => (
-                      <SelectItem key={period.id} value={period.period.toString()}>
-                        {period.period}차시 - {period.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  id="period"
-                  type="number"
-                  min={1}
-                  placeholder="차시 입력"
-                  value={formData.period}
-                  onChange={(e) => setFormData({ ...formData, period: e.target.value })}
-                  disabled={isGenerating}
-                />
-              )}
+              <Label htmlFor="period">총 차시 수</Label>
+              <Select
+                value={formData.period}
+                onValueChange={(value) => setFormData({ ...formData, period: value })}
+                disabled={isGenerating}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="총 차시 수 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="6">6차시 단원</SelectItem>
+                  <SelectItem value="8">8차시 단원</SelectItem>
+                  <SelectItem value="10">10차시 단원</SelectItem>
+                  <SelectItem value="12">12차시 단원</SelectItem>
+                  <SelectItem value="14">14차시 단원</SelectItem>
+                  <SelectItem value="16">16차시 단원</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                단원 전체 차시를 7단계로 배분합니다
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -457,31 +395,6 @@ export function LessonForm() {
               </Select>
             </div>
           </div>
-
-          {/* 선택된 차시 정보 미리보기 */}
-          {selectedPeriodInfo && (
-            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium text-blue-900">
-                  {selectedPeriodInfo.period}차시: {selectedPeriodInfo.title}
-                </h4>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={fillFromPeriodInfo}
-                  className="text-blue-600 border-blue-300 hover:bg-blue-100"
-                >
-                  <Wand2 className="h-4 w-4 mr-1" />
-                  자동 입력
-                </Button>
-              </div>
-              <div className="text-sm text-blue-700 space-y-1">
-                <p><strong>학습목표:</strong> {selectedPeriodInfo.objectives.join(' / ')}</p>
-                <p><strong>성취기준:</strong> {selectedPeriodInfo.achievementStandards.join(' / ')}</p>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 

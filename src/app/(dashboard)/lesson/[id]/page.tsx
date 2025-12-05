@@ -107,7 +107,7 @@ export default function LessonDetailPage() {
               <span>·</span>
               <span>{lesson.subject_id}</span>
               <span>·</span>
-              <span>{lesson.class_period}차시</span>
+              <span>총 {lesson.class_period}차시</span>
               <Badge variant={lesson.status === 'completed' ? 'default' : 'secondary'} className="text-xs">
                 {lesson.status === 'completed' ? '완료' : lesson.status === 'generated' ? '생성됨' : '초안'}
               </Badge>
@@ -254,13 +254,13 @@ export default function LessonDetailPage() {
             </CardContent>
           </Card>
 
-          {/* 핵심 개념 & 빅 아이디어 */}
+          {/* 개념 렌즈 & 빅 아이디어 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <Card>
               <CardHeader className="p-4 md:p-6 pb-2 md:pb-4">
                 <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                   <Lightbulb className="h-4 w-4 md:h-5 md:w-5 text-yellow-500" />
-                  핵심 개념
+                  개념 렌즈
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 md:p-6 pt-0 md:pt-0">

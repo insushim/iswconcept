@@ -293,7 +293,7 @@ export interface LessonInput {
   grade: number;
   subject: string;
   unit: string;
-  period: number;  // 총 차시 수
+  totalPeriods: number;  // 단원 총 차시 수
   duration: number;
   objectives: string[];
   achievementStandards?: string[];
