@@ -1,29 +1,53 @@
 import type { GeneratedLesson } from '@/types/lesson';
 
 export const generatePPTXContentPrompt = (lesson: GeneratedLesson, grade: number): string => {
-  return `수업 PPT 슬라이드 내용을 생성합니다.
+  // 단원 전체 정보 추출
+  const totalPeriods = lesson.unitOverview?.totalPeriods || 10;
+  const unitTitle = lesson.unitOverview?.unitName || lesson.lessonOverview.title;
+  const conceptLens = lesson.unitOverview?.conceptLens || lesson.lessonOverview.coreConcepts?.[0] || '핵심 개념';
 
-## 수업 정보
+  return `단원 전체(${totalPeriods}차시)에 대한 PPT 슬라이드 내용을 생성합니다.
+각 7단계별로 해당 차시에 맞는 슬라이드를 생성합니다.
 
-${JSON.stringify(lesson.lessonOverview, null, 2)}
+## 단원 정보
 
-## 수업 단계 정보
+**단원명**: ${unitTitle}
+**총 차시**: ${totalPeriods}차시
+**학년**: ${grade}학년
+**개념 렌즈**: ${conceptLens}
 
+### 단원 개요
+${JSON.stringify(lesson.unitOverview || lesson.lessonOverview, null, 2)}
+
+### 7단계 설계
 ${JSON.stringify(lesson.stages, null, 2)}
 
-## 학년: ${grade}학년
+### 단원 평가
+${JSON.stringify(lesson.unitAssessment || {}, null, 2)}
 
 ## PPT 생성 요청
 
-다음 JSON 형식으로 수업용 PPT 슬라이드 내용을 생성하세요.
+다음 JSON 형식으로 **단원 전체**의 수업용 PPT 슬라이드 내용을 생성하세요.
+각 단계별로 해당 차시에 맞는 슬라이드를 포함합니다.
 JSON 외의 다른 텍스트는 포함하지 마세요.
 
 ### 중요한 슬라이드 구성 지침:
-1. **총 15~20개의 슬라이드**를 생성하세요
-2. **각 단계(engage, focus, investigate, organize, generalize, transfer, reflect)마다 최소 2개의 슬라이드** 포함
-3. **imageDescription** 필드를 적극 활용하여 시각 자료 설명 포함
-4. **layout 유형**을 다양하게 사용: "title", "content", "two_column", "image_text"
-5. 학생들의 흥미를 끄는 시각적 요소 설명을 포함
+1. **총 25~35개의 슬라이드**를 생성하세요 (${totalPeriods}차시 단원 전체 커버)
+2. **각 단계(engage, focus, investigate, organize, generalize, transfer, reflect)마다 최소 3개의 슬라이드** 포함
+3. **차시 정보를 명확히 표시**: 각 슬라이드에 해당 차시 표시
+4. **imageDescription** 필드를 적극 활용하여 시각 자료 설명 포함
+5. **layout 유형**을 다양하게 사용: "title", "content", "two_column", "image_text"
+6. **단계별 색상** 적용: 각 단계의 고유 색상 사용
+7. 학생들의 흥미를 끄는 시각적 요소 설명을 포함
+
+### 단계별 색상 가이드:
+- 관계맺기(engage): #F59E0B (주황)
+- 집중하기(focus): #3B82F6 (파랑)
+- 조사하기(investigate): #10B981 (초록)
+- 조직하기(organize): #8B5CF6 (보라)
+- 일반화하기(generalize): #EC4899 (분홍)
+- 전이하기(transfer): #06B6D4 (청록)
+- 성찰하기(reflect): #6366F1 (인디고)
 
 {
   "slides": [
@@ -32,227 +56,461 @@ JSON 외의 다른 텍스트는 포함하지 마세요.
       "order": 1,
       "type": "title",
       "layout": "title",
-      "title": "${lesson.lessonOverview.title}",
-      "subtitle": "${grade}학년",
-      "footer": "전북형 개념기반탐구 수업",
-      "imageDescription": "수업 주제와 관련된 매력적인 메인 이미지 (예: 주제를 상징하는 일러스트, 학생들이 호기심을 가질 만한 사진)"
+      "title": "${unitTitle}",
+      "subtitle": "${grade}학년 | ${totalPeriods}차시",
+      "footer": "전북형 개념기반탐구(CBI) 단원",
+      "stageColor": "#4F46E5",
+      "imageDescription": "단원 주제와 관련된 매력적인 메인 이미지 (학생들의 호기심을 자극하는 사진 또는 일러스트)"
     },
     {
       "id": "slide-2",
       "order": 2,
-      "type": "objectives",
+      "type": "overview",
       "layout": "content",
-      "title": "📚 오늘의 학습 목표",
-      "content": ["학습 목표 1", "학습 목표 2"],
-      "notes": "학습 목표를 학생들과 함께 읽어봅니다.",
-      "imageDescription": "목표 달성을 상징하는 아이콘 또는 체크리스트 이미지"
+      "title": "📚 단원 개요",
+      "content": [
+        "개념 렌즈: ${conceptLens}",
+        "핵심 아이디어(빅 아이디어): ...",
+        "총 ${totalPeriods}차시로 구성",
+        "7단계 탐구 여정"
+      ],
+      "notes": "단원 첫 시간에 전체 학습 여정을 안내합니다.",
+      "imageDescription": "7단계 탐구 과정을 보여주는 로드맵 또는 여정 다이어그램"
     },
     {
       "id": "slide-3",
       "order": 3,
-      "type": "stage",
-      "stage": "engage",
-      "layout": "image_text",
-      "title": "🔗 관계맺기 (Engage)",
-      "content": ["동기유발 질문 또는 활동 안내", "무엇이 보이나요?", "무엇이 궁금한가요?"],
-      "notes": "See-Think-Wonder 루틴 적용. 학생들의 사전 지식을 활성화합니다.",
-      "imageDescription": "학생들의 호기심을 자극하는 실제 사진 또는 상황 이미지 (주제와 직접 연관된 시각 자료)"
+      "type": "roadmap",
+      "layout": "content",
+      "title": "🗺️ 우리의 탐구 여정",
+      "content": [
+        "1️⃣ 개념인식: 관계맺기 → 집중하기",
+        "2️⃣ 개념연결: 조사하기 → 조직하기",
+        "3️⃣ 개념전이: 일반화하기 → 전이하기",
+        "4️⃣ 개념성찰: 성찰하기"
+      ],
+      "notes": "7단계가 4개의 대단계(개념인식, 개념연결, 개념전이, 개념성찰)로 구성됨을 안내합니다.",
+      "imageDescription": "7단계를 시각적으로 보여주는 순환 또는 단계 다이어그램 (각 단계별 색상 적용)"
     },
     {
       "id": "slide-4",
       "order": 4,
-      "type": "activity",
-      "stage": "engage",
-      "layout": "two_column",
-      "title": "💭 생각해 봅시다",
-      "leftContent": ["무엇이 보이나요?", "무엇이 떠오르나요?"],
-      "rightContent": ["무엇이 궁금한가요?", "어떤 경험이 생각나나요?"],
-      "notes": "학생들의 다양한 반응을 수용합니다.",
-      "imageDescription": "생각하는 학생들 또는 물음표/전구 아이콘"
+      "type": "questions",
+      "layout": "content",
+      "title": "❓ 단원 탐구 질문",
+      "content": [
+        "(사) 사실적 질문: ~은/는 무엇인가요?",
+        "(개) 개념적 질문: 왜 ~할까요?",
+        "(논) 논쟁적 질문: ~해야 할까요?"
+      ],
+      "notes": "단원 전체를 관통하는 핵심 탐구 질문을 소개합니다.",
+      "imageDescription": "세 가지 유형의 질문을 구분하는 아이콘 또는 색상 코드 다이어그램"
     },
     {
       "id": "slide-5",
       "order": 5,
-      "type": "stage",
-      "stage": "focus",
-      "layout": "image_text",
-      "title": "🔍 집중하기 (Focus)",
-      "content": ["오늘 탐구할 핵심 개념을 소개합니다"],
-      "notes": "개념의 정의와 예시를 함께 설명합니다.",
-      "imageDescription": "핵심 개념을 시각적으로 표현하는 다이어그램 또는 개념 이미지"
+      "type": "stage_intro",
+      "stage": "engage",
+      "layout": "title",
+      "title": "🔗 1단계: 관계맺기 (Engage)",
+      "subtitle": "${lesson.stages?.engage?.periods || '1차시'} | 개념인식",
+      "stageColor": "#F59E0B",
+      "notes": "첫 번째 단계 시작을 안내합니다.",
+      "imageDescription": "연결, 관계를 상징하는 이미지 (손을 잡는 모습, 연결된 고리 등)"
     },
     {
       "id": "slide-6",
       "order": 6,
-      "type": "concepts",
-      "stage": "focus",
-      "layout": "content",
-      "title": "💡 핵심 개념",
-      "content": ["핵심 개념 1에 대한 설명", "핵심 개념 2에 대한 설명"],
-      "notes": "각 개념의 정의와 예시를 함께 설명합니다.",
-      "imageDescription": "개념들을 연결하는 개념도 또는 마인드맵 형태의 다이어그램"
+      "type": "activity",
+      "stage": "engage",
+      "layout": "image_text",
+      "title": "🔗 관계맺기: 무엇이 보이나요?",
+      "content": ["자료를 관찰해 봅시다", "무엇이 보이나요?", "어떤 생각이 드나요?", "무엇이 궁금한가요?"],
+      "stageColor": "#F59E0B",
+      "notes": "See-Think-Wonder 사고루틴을 적용합니다. 학생들의 사전 지식과 경험을 이끌어냅니다.",
+      "imageDescription": "단원 주제와 관련된 호기심을 자극하는 실제 사진 또는 상황 이미지"
     },
     {
       "id": "slide-7",
       "order": 7,
-      "type": "question",
-      "stage": "focus",
-      "layout": "content",
-      "title": "❓ 오늘의 탐구 질문",
-      "content": ["개념적 질문 (왜? 어떻게?)"],
-      "notes": "학생들이 스스로 생각할 시간을 줍니다.",
-      "imageDescription": "큰 물음표 또는 탐정/돋보기 이미지"
+      "type": "thinking_routine",
+      "stage": "engage",
+      "layout": "two_column",
+      "title": "💭 보고-생각하고-궁금해하기",
+      "leftContent": ["👀 무엇이 보이나요?", "🤔 무엇이 생각나나요?"],
+      "rightContent": ["❓ 무엇이 궁금한가요?", "💡 어떤 경험이 떠오르나요?"],
+      "stageColor": "#F59E0B",
+      "notes": "학생들의 다양한 반응을 수용적으로 받아들입니다.",
+      "imageDescription": "생각하는 학생들 또는 See-Think-Wonder 루틴 다이어그램"
     },
     {
       "id": "slide-8",
       "order": 8,
-      "type": "stage",
-      "stage": "investigate",
-      "layout": "image_text",
-      "title": "🔬 조사하기 (Investigate)",
-      "content": ["탐구 활동을 시작합니다"],
-      "notes": "모둠별로 순회하며 지도합니다.",
-      "imageDescription": "조사/탐구 활동을 하는 학생들 또는 실험 도구 이미지"
+      "type": "stage_intro",
+      "stage": "focus",
+      "layout": "title",
+      "title": "🎯 2단계: 집중하기 (Focus)",
+      "subtitle": "${lesson.stages?.focus?.periods || '2차시'} | 개념인식",
+      "stageColor": "#3B82F6",
+      "notes": "핵심 개념을 소개하는 단계입니다.",
+      "imageDescription": "집중, 초점을 상징하는 이미지 (돋보기, 타겟 등)"
     },
     {
       "id": "slide-9",
       "order": 9,
-      "type": "activity",
-      "stage": "investigate",
+      "type": "concept",
+      "stage": "focus",
       "layout": "content",
-      "title": "📋 활동 안내",
-      "content": [
-        "1. 첫 번째 단계",
-        "2. 두 번째 단계",
-        "3. 세 번째 단계",
-        "4. 결과 정리하기"
-      ],
-      "notes": "각 단계를 명확히 안내하고, 시간을 알려줍니다.",
-      "imageDescription": "단계별 과정을 보여주는 순서도 또는 번호가 있는 체크리스트"
+      "title": "🎯 핵심 개념: ${conceptLens}",
+      "content": ["${conceptLens}이란?", "정의:", "특징:", "예시:"],
+      "stageColor": "#3B82F6",
+      "notes": "핵심 개념을 명시적으로 소개하고 탐구 방향을 안내합니다.",
+      "imageDescription": "핵심 개념을 시각적으로 표현하는 다이어그램 또는 개념 이미지"
     },
     {
       "id": "slide-10",
       "order": 10,
-      "type": "stage",
-      "stage": "organize",
-      "layout": "image_text",
-      "title": "📊 조직하기 (Organize)",
-      "content": ["발견한 내용을 정리합니다"],
-      "notes": "그래픽 조직자를 활용합니다.",
-      "imageDescription": "벤다이어그램, 표, 마인드맵 등의 그래픽 조직자 예시"
+      "type": "thinking_routine",
+      "stage": "focus",
+      "layout": "two_column",
+      "title": "📝 프레이어 모델",
+      "leftContent": ["정의:", "특징:"],
+      "rightContent": ["예시:", "비예시:"],
+      "stageColor": "#3B82F6",
+      "notes": "프레이어 모델을 활용하여 개념 정의를 형성합니다.",
+      "imageDescription": "프레이어 모델 4분할 다이어그램"
     },
     {
       "id": "slide-11",
       "order": 11,
-      "type": "activity",
-      "stage": "organize",
-      "layout": "two_column",
-      "title": "✏️ 정리해 봅시다",
-      "leftContent": ["발견한 사실들", "공통점과 차이점"],
-      "rightContent": ["중요한 패턴", "핵심 아이디어"],
-      "notes": "학생들이 발견한 내용을 구조화하도록 돕습니다.",
-      "imageDescription": "정리/분류 활동을 하는 학생들 또는 표/차트 이미지"
+      "type": "question",
+      "stage": "focus",
+      "layout": "content",
+      "title": "❓ 오늘의 탐구 질문",
+      "content": ["이번 단원의 핵심 탐구 질문입니다", "(개) 왜 ~할까요?"],
+      "stageColor": "#3B82F6",
+      "notes": "학생들이 탐구할 핵심 질문을 제시합니다.",
+      "imageDescription": "큰 물음표 또는 탐정/돋보기 이미지"
     },
     {
       "id": "slide-12",
       "order": 12,
-      "type": "stage",
-      "stage": "generalize",
-      "layout": "content",
-      "title": "🌟 일반화하기 (Generalize)",
-      "content": [
-        "우리가 발견한 것:",
-        "${lesson.lessonOverview.bigIdeas[0] || '일반화 진술문'}"
-      ],
-      "notes": "학생들이 직접 일반화를 도출하도록 합니다.",
-      "imageDescription": "전구(아이디어) 아이콘 또는 퍼즐 조각이 맞춰지는 이미지"
+      "type": "stage_intro",
+      "stage": "investigate",
+      "layout": "title",
+      "title": "🔬 3단계: 조사하기 (Investigate)",
+      "subtitle": "${lesson.stages?.investigate?.periods || '3-4차시'} | 개념연결",
+      "stageColor": "#10B981",
+      "notes": "탐구 활동을 시작하는 단계입니다.",
+      "imageDescription": "조사, 탐구를 상징하는 이미지 (돋보기, 실험 도구, 책 등)"
     },
     {
       "id": "slide-13",
       "order": 13,
-      "type": "content",
-      "stage": "generalize",
+      "type": "activity",
+      "stage": "investigate",
       "layout": "content",
-      "title": "💎 빅 아이디어",
-      "content": ["일반화된 개념을 정리합니다", "이것은 다른 상황에서도 적용됩니다"],
-      "notes": "일반화의 전이 가능성을 강조합니다.",
-      "imageDescription": "핵심 아이디어를 강조하는 배너 또는 하이라이트 박스"
+      "title": "🔬 탐구 활동 안내",
+      "content": [
+        "1. 자료를 읽고 중요한 내용을 찾아요",
+        "2. 모둠원과 발견한 것을 토의해요",
+        "3. 발견한 것을 활동지에 기록해요",
+        "4. 패턴과 공통점을 찾아봐요"
+      ],
+      "stageColor": "#10B981",
+      "notes": "탐구 활동 순서를 명확히 안내합니다.",
+      "imageDescription": "단계별 과정을 보여주는 순서도 또는 체크리스트"
     },
     {
       "id": "slide-14",
       "order": 14,
-      "type": "stage",
-      "stage": "transfer",
-      "layout": "image_text",
-      "title": "🚀 전이하기 (Transfer)",
-      "content": ["배운 것을 새로운 상황에 적용합니다"],
-      "notes": "다른 상황에서의 적용을 생각해봅니다.",
-      "imageDescription": "다양한 상황/맥락을 보여주는 이미지 콜라주"
+      "type": "materials",
+      "stage": "investigate",
+      "layout": "two_column",
+      "title": "📋 모둠별 탐구 자료",
+      "leftContent": ["1모둠: 사례 A", "2모둠: 사례 B"],
+      "rightContent": ["3모둠: 사례 C", "4모둠: 사례 D"],
+      "stageColor": "#10B981",
+      "notes": "각 모둠에 다른 사례를 배분하여 직소 활동을 준비합니다.",
+      "imageDescription": "다양한 사례 자료 이미지 또는 모둠 활동하는 학생들"
     },
     {
       "id": "slide-15",
       "order": 15,
-      "type": "activity",
-      "stage": "transfer",
+      "type": "scaffolding",
+      "stage": "investigate",
       "layout": "content",
-      "title": "🎯 적용해 봅시다",
-      "content": ["새로운 상황 제시", "어떻게 적용할 수 있을까요?"],
-      "notes": "실생활 연계 또는 다른 교과와의 연결점을 찾습니다.",
-      "imageDescription": "실생활 적용 예시를 보여주는 이미지"
+      "title": "💡 탐구 도움 질문",
+      "content": [
+        "어떤 공통점이 보이나요?",
+        "왜 그런 현상이 일어났을까요?",
+        "다른 경우에도 적용될까요?",
+        "이것은 우리가 배운 개념과 어떻게 연결되나요?"
+      ],
+      "stageColor": "#10B981",
+      "notes": "스캐폴딩 질문으로 탐구를 촉진합니다.",
+      "imageDescription": "물음표와 전구 아이콘이 함께 있는 이미지"
     },
     {
       "id": "slide-16",
       "order": 16,
-      "type": "stage",
-      "stage": "reflect",
-      "layout": "content",
-      "title": "🪞 성찰하기 (Reflect)",
-      "content": [
-        "예전에는 _____ 라고 생각했어요.",
-        "지금은 _____ 라고 생각해요.",
-        "더 알고 싶은 것: _____"
-      ],
-      "notes": "학습 성찰 시간을 충분히 줍니다.",
-      "imageDescription": "거울 또는 생각하는 사람 실루엣 이미지"
+      "type": "stage_intro",
+      "stage": "organize",
+      "layout": "title",
+      "title": "📊 4단계: 조직 및 정리하기 (Organize)",
+      "subtitle": "${lesson.stages?.organize?.periods || '5-6차시'} | 개념연결",
+      "stageColor": "#8B5CF6",
+      "notes": "발견한 내용을 정리하는 단계입니다.",
+      "imageDescription": "정리, 분류를 상징하는 이미지 (폴더, 차트, 마인드맵 등)"
     },
     {
       "id": "slide-17",
       "order": 17,
-      "type": "reflection",
-      "stage": "reflect",
-      "layout": "two_column",
-      "title": "📝 나의 배움 일지",
-      "leftContent": ["오늘 새롭게 알게 된 것", "가장 재미있었던 것"],
-      "rightContent": ["더 궁금한 것", "실생활에서 활용할 점"],
-      "notes": "학생 개인별 성찰 시간을 줍니다.",
-      "imageDescription": "일기장/노트 이미지 또는 연필로 쓰는 손"
+      "type": "activity",
+      "stage": "organize",
+      "layout": "content",
+      "title": "📊 발견한 내용 정리하기",
+      "content": [
+        "공통점은 무엇인가요?",
+        "차이점은 무엇인가요?",
+        "어떤 패턴이 보이나요?",
+        "왜 그런 패턴이 나타났을까요?"
+      ],
+      "stageColor": "#8B5CF6",
+      "notes": "그래픽 조직자를 활용하여 정보를 구조화합니다.",
+      "imageDescription": "벤다이어그램, 표, 마인드맵 등의 그래픽 조직자 예시"
     },
     {
       "id": "slide-18",
       "order": 18,
-      "type": "summary",
-      "layout": "content",
-      "title": "📌 오늘 배운 내용",
-      "content": [
-        "핵심 개념: ...",
-        "일반화(빅 아이디어): ...",
-        "다음 시간 예고: ..."
-      ],
-      "imageDescription": "체크마크가 있는 요약 박스 또는 핵심 내용을 담은 포스트잇"
+      "type": "thinking_routine",
+      "stage": "organize",
+      "layout": "two_column",
+      "title": "✏️ 교차비교차트",
+      "leftContent": ["항목", "공통점", "차이점"],
+      "rightContent": ["패턴", "의미", "연결"],
+      "stageColor": "#8B5CF6",
+      "notes": "Compare and Contrast 루틴을 적용합니다.",
+      "imageDescription": "교차비교차트 템플릿 이미지"
     },
     {
       "id": "slide-19",
       "order": 19,
-      "type": "content",
+      "type": "sharing",
+      "stage": "organize",
+      "layout": "content",
+      "title": "🎨 갤러리 워크",
+      "content": [
+        "모둠별로 정리한 내용을 전시해요",
+        "다른 모둠의 내용을 살펴봐요",
+        "좋은 점을 메모해요",
+        "공통점을 찾아봐요"
+      ],
+      "stageColor": "#8B5CF6",
+      "notes": "갤러리 워크를 통해 모둠 간 결과를 공유합니다.",
+      "imageDescription": "갤러리 워크 활동하는 학생들 또는 전시된 포스터들"
+    },
+    {
+      "id": "slide-20",
+      "order": 20,
+      "type": "stage_intro",
+      "stage": "generalize",
+      "layout": "title",
+      "title": "💡 5단계: 일반화하기 (Generalize)",
+      "subtitle": "${lesson.stages?.generalize?.periods || '7차시'} | 개념전이",
+      "stageColor": "#EC4899",
+      "notes": "빅 아이디어를 도출하는 핵심 단계입니다.",
+      "imageDescription": "아이디어, 발견을 상징하는 이미지 (전구, 퍼즐 조각이 맞춰지는 모습)"
+    },
+    {
+      "id": "slide-21",
+      "order": 21,
+      "type": "activity",
+      "stage": "generalize",
+      "layout": "content",
+      "title": "💡 우리가 발견한 것",
+      "content": [
+        "여러 사례에서 공통으로 발견한 것은?",
+        "이것이 다른 상황에서도 적용될까요?",
+        "한 문장으로 정리하면?",
+        "이것이 우리의 '빅 아이디어'입니다!"
+      ],
+      "stageColor": "#EC4899",
+      "notes": "귀납적으로 일반화를 도출하도록 안내합니다.",
+      "imageDescription": "여러 조각이 하나의 큰 그림을 만드는 퍼즐 이미지"
+    },
+    {
+      "id": "slide-22",
+      "order": 22,
+      "type": "big_idea",
+      "stage": "generalize",
+      "layout": "content",
+      "title": "⭐ 빅 아이디어 (일반화)",
+      "content": ["우리가 발견한 빅 아이디어:", "\"~은/는 ~하기 때문에 ~하다\""],
+      "stageColor": "#EC4899",
+      "notes": "학생들이 도출한 일반화를 강조하여 기록합니다.",
+      "imageDescription": "별 또는 보석 아이콘과 함께 강조된 텍스트 박스"
+    },
+    {
+      "id": "slide-23",
+      "order": 23,
+      "type": "stage_intro",
+      "stage": "transfer",
+      "layout": "title",
+      "title": "🚀 6단계: 전이하기 (Transfer)",
+      "subtitle": "${lesson.stages?.transfer?.periods || '8-9차시'} | 개념전이",
+      "stageColor": "#06B6D4",
+      "notes": "배운 개념을 새로운 상황에 적용하는 단계입니다.",
+      "imageDescription": "전이, 적용을 상징하는 이미지 (화살표, 연결, 확장)"
+    },
+    {
+      "id": "slide-24",
+      "order": 24,
+      "type": "task",
+      "stage": "transfer",
+      "layout": "content",
+      "title": "🚀 수행과제 안내",
+      "content": [
+        "🎯 목표(G): ...",
+        "🎭 역할(R): ...",
+        "👥 청중(A): ...",
+        "📍 상황(S): ...",
+        "📦 산출물(P): ...",
+        "📋 기준(S): ..."
+      ],
+      "stageColor": "#06B6D4",
+      "notes": "GRASPS 수행과제의 각 요소를 명확히 안내합니다.",
+      "imageDescription": "미션 또는 과제를 상징하는 이미지"
+    },
+    {
+      "id": "slide-25",
+      "order": 25,
+      "type": "rubric",
+      "stage": "transfer",
+      "layout": "content",
+      "title": "📋 평가 기준 (루브릭)",
+      "content": [
+        "지식·이해: 잘함 / 보통 / 노력요함",
+        "과정·기능: 잘함 / 보통 / 노력요함",
+        "가치·태도: 잘함 / 보통 / 노력요함"
+      ],
+      "stageColor": "#06B6D4",
+      "notes": "3단계 루브릭으로 평가 기준을 공유합니다.",
+      "imageDescription": "체크리스트 또는 루브릭 표 이미지"
+    },
+    {
+      "id": "slide-26",
+      "order": 26,
+      "type": "activity",
+      "stage": "transfer",
+      "layout": "content",
+      "title": "✨ 수행과제 수행",
+      "content": [
+        "우리의 빅 아이디어를 적용해요",
+        "창의적으로 문제를 해결해요",
+        "산출물을 만들어요",
+        "발표를 준비해요"
+      ],
+      "stageColor": "#06B6D4",
+      "notes": "수행과제 수행 시 개념 적용을 강조합니다.",
+      "imageDescription": "협력하여 프로젝트를 수행하는 학생들"
+    },
+    {
+      "id": "slide-27",
+      "order": 27,
+      "type": "stage_intro",
+      "stage": "reflect",
+      "layout": "title",
+      "title": "🪞 7단계: 성찰하기 (Reflect)",
+      "subtitle": "${lesson.stages?.reflect?.periods || '10차시'} | 개념성찰",
+      "stageColor": "#6366F1",
+      "notes": "단원을 마무리하며 학습을 성찰하는 단계입니다.",
+      "imageDescription": "거울, 성찰을 상징하는 이미지"
+    },
+    {
+      "id": "slide-28",
+      "order": 28,
+      "type": "thinking_routine",
+      "stage": "reflect",
+      "layout": "content",
+      "title": "🪞 예전에는-지금은",
+      "content": [
+        "예전에는 ___ 라고 생각했어요.",
+        "지금은 ___ 라고 생각해요.",
+        "내 생각이 바뀐 이유는 ___"
+      ],
+      "stageColor": "#6366F1",
+      "notes": "I Used to Think... Now I Think... 루틴을 적용합니다.",
+      "imageDescription": "before/after 또는 변화를 보여주는 이미지"
+    },
+    {
+      "id": "slide-29",
+      "order": 29,
+      "type": "reflection",
+      "stage": "reflect",
+      "layout": "two_column",
+      "title": "📝 나의 배움 일지",
+      "leftContent": ["오늘 새롭게 알게 된 것", "가장 인상 깊었던 것"],
+      "rightContent": ["더 궁금한 것", "실생활에서 활용할 점"],
+      "stageColor": "#6366F1",
+      "notes": "학생 개인별 성찰 시간을 줍니다.",
+      "imageDescription": "일기장/노트 이미지 또는 연필로 쓰는 손"
+    },
+    {
+      "id": "slide-30",
+      "order": 30,
+      "type": "self_assessment",
+      "stage": "reflect",
+      "layout": "content",
+      "title": "⭐ 자기평가",
+      "content": [
+        "핵심 개념을 이해했나요? ⭐⭐⭐",
+        "탐구 활동에 적극 참여했나요? ⭐⭐⭐",
+        "빅 아이디어를 발견했나요? ⭐⭐⭐",
+        "새로운 상황에 적용할 수 있나요? ⭐⭐⭐"
+      ],
+      "stageColor": "#6366F1",
+      "notes": "자기평가 체크리스트를 작성합니다.",
+      "imageDescription": "체크리스트와 별 아이콘"
+    },
+    {
+      "id": "slide-31",
+      "order": 31,
+      "type": "summary",
+      "layout": "content",
+      "title": "📌 단원 정리",
+      "content": [
+        "핵심 개념: ${conceptLens}",
+        "빅 아이디어(일반화): ...",
+        "탐구 질문에 대한 우리의 답: ...",
+        "다음 단원 예고: ..."
+      ],
+      "stageColor": "#4F46E5",
+      "imageDescription": "체크마크가 있는 요약 박스 또는 핵심 내용을 담은 포스트잇"
+    },
+    {
+      "id": "slide-32",
+      "order": 32,
+      "type": "closing",
       "layout": "title",
       "title": "잘했어요! 👏",
-      "content": ["오늘 열심히 탐구한 여러분, 수고했어요!"],
+      "subtitle": "${totalPeriods}차시의 탐구 여정을 마쳤습니다!",
+      "content": ["훌륭한 탐구자가 되어 빅 아이디어를 발견한 여러분, 수고했어요!"],
+      "stageColor": "#4F46E5",
       "imageDescription": "박수치는 손 또는 축하 이미지, 밝고 긍정적인 분위기"
     }
   ],
   "designTheme": {
     "primaryColor": "#4F46E5",
-    "secondaryColor": "#10B981",
+    "stageColors": {
+      "engage": "#F59E0B",
+      "focus": "#3B82F6",
+      "investigate": "#10B981",
+      "organize": "#8B5CF6",
+      "generalize": "#EC4899",
+      "transfer": "#06B6D4",
+      "reflect": "#6366F1"
+    },
     "fontFamily": "맑은 고딕",
     "titleSize": 44,
     "contentSize": 24
@@ -261,13 +519,16 @@ JSON 외의 다른 텍스트는 포함하지 마세요.
 
 ## PPT 설계 원칙
 
-1. **시각적 풍부함**: 모든 슬라이드에 imageDescription을 포함하여 시각 자료 제안
-2. **단계별 구분**: 각 탐구 단계를 이모지와 함께 명확히 표시 (🔗🔍🔬📊🌟🚀🪞)
-3. **다양한 레이아웃**: title, content, two_column, image_text 레이아웃을 골고루 사용
-4. **${grade}학년 수준**: 적절한 어휘와 글자 크기 사용, 친근한 톤
-5. **상호작용 유도**: 질문, 활동 안내 슬라이드 포함
-6. **노트 활용**: 교사용 발표자 노트 상세 작성
-7. **충분한 슬라이드 수**: 15~20개의 슬라이드로 수업 전체를 커버
+1. **단원 전체 구성**: ${totalPeriods}차시 전체를 커버하는 슬라이드 구성
+2. **차시 정보 표시**: 각 단계별 해당 차시를 명확히 표시
+3. **단계별 색상**: 7단계 각각의 고유 색상을 활용하여 시각적 구분
+4. **시각적 풍부함**: 모든 슬라이드에 imageDescription을 포함하여 시각 자료 제안
+5. **단계별 구분**: 각 탐구 단계를 이모지와 함께 명확히 표시 (🔗🎯🔬📊💡🚀🪞)
+6. **다양한 레이아웃**: title, content, two_column, image_text 레이아웃을 골고루 사용
+7. **${grade}학년 수준**: 적절한 어휘와 글자 크기 사용, 친근한 톤
+8. **사고루틴 포함**: 각 단계에 맞는 사고루틴 슬라이드 포함
+9. **상호작용 유도**: 질문, 활동 안내 슬라이드 포함
+10. **노트 활용**: 교사용 발표자 노트 상세 작성
 
 ### imageDescription 작성 가이드:
 - 수업 주제에 맞는 구체적인 이미지 설명

@@ -21,6 +21,10 @@ import {
   HelpCircle,
   Sparkles,
   Loader2,
+  Calendar,
+  Star,
+  Users,
+  CheckSquare,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { CBI_STAGES, type CBIStageId } from '@/lib/constants/cbi-stages';
@@ -103,7 +107,7 @@ export default function LessonDetailPage() {
               <span>·</span>
               <span>{lesson.subject_id}</span>
               <span>·</span>
-              <span>{lesson.duration}분</span>
+              <span>{lesson.class_period}차시</span>
               <Badge variant={lesson.status === 'completed' ? 'default' : 'secondary'} className="text-xs">
                 {lesson.status === 'completed' ? '완료' : lesson.status === 'generated' ? '생성됨' : '초안'}
               </Badge>
@@ -132,6 +136,107 @@ export default function LessonDetailPage() {
 
         {/* 개요 탭 */}
         <TabsContent value="overview" className="space-y-3 md:space-y-4">
+          {/* 단원 개요 (새로운 섹션) */}
+          {lesson.unit_overview && (
+            <Card className="border-indigo-200 bg-indigo-50/30">
+              <CardHeader className="p-4 md:p-6 pb-2 md:pb-4">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Star className="h-4 w-4 md:h-5 md:w-5 text-indigo-600" />
+                  단원 개요
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 pt-0 md:pt-0 space-y-4">
+                {/* 개념 렌즈 & 핵심 아이디어 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-3 bg-white rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">개념 렌즈</p>
+                    <p className="font-medium text-sm md:text-base">{lesson.unit_overview.conceptLens}</p>
+                  </div>
+                  <div className="p-3 bg-white rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">총 차시</p>
+                    <p className="font-medium text-sm md:text-base">{lesson.unit_overview.totalPeriods}차시</p>
+                  </div>
+                </div>
+
+                {/* 단원 핵심 아이디어 */}
+                {lesson.unit_overview.unitKeyIdea && (
+                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
+                    <p className="text-xs text-purple-600 mb-1">단원 핵심 아이디어</p>
+                    <p className="text-sm md:text-base">&ldquo;{lesson.unit_overview.unitKeyIdea}&rdquo;</p>
+                  </div>
+                )}
+
+                {/* 설계 의도 */}
+                {lesson.unit_overview.designIntent && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">단원 설계 의도</p>
+                    <p className="text-xs md:text-sm text-muted-foreground">{lesson.unit_overview.designIntent}</p>
+                  </div>
+                )}
+
+                {/* 핵심 역량 */}
+                {lesson.unit_overview.coreCompetencies && lesson.unit_overview.coreCompetencies.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">핵심 역량</p>
+                    <div className="flex flex-wrap gap-2">
+                      {lesson.unit_overview.coreCompetencies.map((comp, i) => (
+                        <Badge key={i} className="text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-100">
+                          {comp.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 성취기준 */}
+                {lesson.unit_overview.achievementStandards && lesson.unit_overview.achievementStandards.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">성취기준</p>
+                    <ul className="space-y-1">
+                      {lesson.unit_overview.achievementStandards.map((std, i) => (
+                        <li key={i} className="text-xs md:text-sm p-2 bg-white rounded">{std}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* 일반화와 탐구질문 */}
+                {lesson.unit_overview.generalizations && lesson.unit_overview.generalizations.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">일반화와 탐구질문</p>
+                    <div className="space-y-3">
+                      {lesson.unit_overview.generalizations.map((gen, i) => (
+                        <div key={i} className="p-3 bg-white rounded-lg border">
+                          <p className="font-medium text-sm mb-2">{gen.generalization}</p>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                            <div className="p-2 bg-blue-50 rounded">
+                              <span className="font-medium text-blue-700">(사)</span>
+                              <span className="text-muted-foreground ml-1">
+                                {gen.inquiryQuestions?.factual?.[0] || '-'}
+                              </span>
+                            </div>
+                            <div className="p-2 bg-green-50 rounded">
+                              <span className="font-medium text-green-700">(개)</span>
+                              <span className="text-muted-foreground ml-1">
+                                {gen.inquiryQuestions?.conceptual?.[0] || '-'}
+                              </span>
+                            </div>
+                            <div className="p-2 bg-orange-50 rounded">
+                              <span className="font-medium text-orange-700">(논)</span>
+                              <span className="text-muted-foreground ml-1">
+                                {gen.inquiryQuestions?.debatable?.[0] || '-'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* 학습 목표 */}
           <Card>
             <CardHeader className="p-4 md:p-6 pb-2 md:pb-4">
@@ -206,7 +311,7 @@ export default function LessonDetailPage() {
             </CardHeader>
             <CardContent className="p-4 md:p-6 pt-0 md:pt-0 space-y-3 md:space-y-4">
               <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground mb-2">사실적 질문</p>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground mb-2">(사) 사실적 질문</p>
                 <ul className="list-disc list-inside space-y-1">
                   {(lesson.factual_questions || []).map((q, i) => (
                     <li key={i} className="text-xs md:text-sm">{q}</li>
@@ -214,7 +319,7 @@ export default function LessonDetailPage() {
                 </ul>
               </div>
               <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground mb-2">개념적 질문</p>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground mb-2">(개) 개념적 질문</p>
                 <ul className="list-disc list-inside space-y-1">
                   {(lesson.conceptual_questions || []).map((q, i) => (
                     <li key={i} className="text-xs md:text-sm">{q}</li>
@@ -222,7 +327,7 @@ export default function LessonDetailPage() {
                 </ul>
               </div>
               <div>
-                <p className="text-xs md:text-sm font-medium text-muted-foreground mb-2">논쟁적 질문</p>
+                <p className="text-xs md:text-sm font-medium text-muted-foreground mb-2">(논) 논쟁적 질문</p>
                 <ul className="list-disc list-inside space-y-1">
                   {(lesson.debatable_questions || []).map((q, i) => (
                     <li key={i} className="text-xs md:text-sm">{q}</li>
@@ -250,16 +355,49 @@ export default function LessonDetailPage() {
                       <span>{stageInfo.emoji}</span>
                       <span>{stageInfo.name}</span>
                       <span className="text-xs md:text-sm text-muted-foreground">({stageInfo.nameEn})</span>
+                      <Badge
+                        variant="outline"
+                        className="text-xs ml-1"
+                        style={{ borderColor: stageInfo.color, color: stageInfo.color }}
+                      >
+                        {stageInfo.phase}
+                      </Badge>
                     </div>
-                    <div className="flex items-center gap-1 text-xs md:text-sm text-muted-foreground">
-                      <Clock className="h-3 w-3 md:h-4 md:w-4" />
-                      {stageData?.duration || stageInfo.defaultDuration}분
+                    <div className="flex items-center gap-3 text-xs md:text-sm text-muted-foreground">
+                      {stageData?.periods && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3 md:h-4 md:w-4" />
+                          {stageData.periods}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3 md:h-4 md:w-4" />
+                        {stageData?.duration || stageInfo.defaultDuration}분/차시
+                      </div>
                     </div>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 md:p-6 pt-0 space-y-3 md:space-y-4">
                   {stageData && (
                     <>
+                      {/* 일반화 & 탐구질문 */}
+                      {(stageData.generalization || stageData.inquiryQuestion) && (
+                        <div className="p-3 rounded-lg" style={{ backgroundColor: `${stageInfo.color}10` }}>
+                          {stageData.generalization && (
+                            <div className="mb-2">
+                              <p className="text-xs font-medium" style={{ color: stageInfo.color }}>일반화</p>
+                              <p className="text-xs md:text-sm">&ldquo;{stageData.generalization}&rdquo;</p>
+                            </div>
+                          )}
+                          {stageData.inquiryQuestion && (
+                            <div>
+                              <p className="text-xs font-medium" style={{ color: stageInfo.color }}>탐구질문</p>
+                              <p className="text-xs md:text-sm">{stageData.inquiryQuestion}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* 목표 */}
                       <div>
                         <p className="text-xs md:text-sm font-medium mb-1 md:mb-2">단계 목표</p>
@@ -339,6 +477,91 @@ export default function LessonDetailPage() {
 
         {/* 평가 탭 */}
         <TabsContent value="assessment" className="space-y-3 md:space-y-4">
+          {/* GRASPS 수행과제 */}
+          {lesson.unit_assessment?.graspsTask && (
+            <Card className="border-cyan-200">
+              <CardHeader className="p-4 md:p-6 pb-2 md:pb-4">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Target className="h-4 w-4 md:h-5 md:w-5 text-cyan-600" />
+                  GRASPS 수행과제
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 pt-0 md:pt-0 space-y-3">
+                <div className="p-3 bg-cyan-50 rounded-lg">
+                  <p className="font-medium text-sm md:text-base text-cyan-800">
+                    {lesson.unit_assessment.graspsTask.taskName}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">🎯 목표 (Goal)</p>
+                    <p className="text-xs md:text-sm">{lesson.unit_assessment.graspsTask.goal}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">🎭 역할 (Role)</p>
+                    <p className="text-xs md:text-sm">{lesson.unit_assessment.graspsTask.role}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">👥 청중 (Audience)</p>
+                    <p className="text-xs md:text-sm">{lesson.unit_assessment.graspsTask.audience}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">📍 상황 (Situation)</p>
+                    <p className="text-xs md:text-sm">{lesson.unit_assessment.graspsTask.situation}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">📦 산출물 (Product)</p>
+                    <p className="text-xs md:text-sm">{lesson.unit_assessment.graspsTask.product}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">📋 기준 (Standards)</p>
+                    <p className="text-xs md:text-sm">{lesson.unit_assessment.graspsTask.standards}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 3단계 루브릭 */}
+          {lesson.unit_assessment?.rubric && lesson.unit_assessment.rubric.length > 0 && (
+            <Card className="border-purple-200">
+              <CardHeader className="p-4 md:p-6 pb-2 md:pb-4">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <CheckSquare className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
+                  평가 루브릭 (3단계)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 pt-0 md:pt-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs md:text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 px-2 md:px-3 font-medium">평가 요소</th>
+                        <th className="text-left py-2 px-2 md:px-3 font-medium text-green-600">⭐⭐⭐ 잘함</th>
+                        <th className="text-left py-2 px-2 md:px-3 font-medium text-yellow-600">⭐⭐ 보통</th>
+                        <th className="text-left py-2 px-2 md:px-3 font-medium text-orange-600">⭐ 노력요함</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lesson.unit_assessment.rubric.map((item, i) => (
+                        <tr key={i} className="border-b">
+                          <td className="py-2 px-2 md:px-3">
+                            <div className="font-medium">{item.criterion}</div>
+                            <Badge variant="outline" className="text-xs mt-1">{item.categoryName}</Badge>
+                          </td>
+                          <td className="py-2 px-2 md:px-3 text-muted-foreground">{item.excellent}</td>
+                          <td className="py-2 px-2 md:px-3 text-muted-foreground">{item.satisfactory}</td>
+                          <td className="py-2 px-2 md:px-3 text-muted-foreground">{item.needsImprovement}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 기존 평가 계획 */}
           <Card>
             <CardHeader className="p-4 md:p-6 pb-2 md:pb-4">
               <CardTitle className="text-base md:text-lg">평가 계획</CardTitle>
@@ -379,7 +602,7 @@ export default function LessonDetailPage() {
                   )}
                 </>
               )}
-              {!lesson.assessment_plan && (
+              {!lesson.assessment_plan && !lesson.unit_assessment && (
                 <p className="text-sm text-muted-foreground">평가 계획이 없습니다.</p>
               )}
             </CardContent>
