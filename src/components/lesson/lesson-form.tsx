@@ -211,43 +211,60 @@ export function LessonForm() {
       console.log('[lesson-form] lessonDesign:', lessonDesign ? '있음' : '없음');
 
       let lessonId: string;
+      const lessonData = {
+        title: lessonDesign.lessonOverview?.title || `${formData.subject} ${formData.unit} ${formData.period}차시`,
+        publisher_id: formData.publisher,
+        subject_id: formData.subject,
+        unit_id: formData.unit,
+        grade: parseInt(formData.grade),
+        class_period: parseInt(formData.period) || 1,
+        duration: parseInt(formData.duration),
+        learning_objectives: formData.objectives.split('\n').filter((o) => o.trim()),
+        achievement_standards: formData.achievementStandards?.split('\n').filter((s) => s.trim()) || [],
+        core_concepts: lessonDesign.lessonOverview?.coreConcepts || [],
+        related_concepts: lessonDesign.lessonOverview?.relatedConcepts || [],
+        big_ideas: lessonDesign.lessonOverview?.bigIdeas || [],
+        factual_questions: lessonDesign.lessonOverview?.guidingQuestions?.factual || [],
+        conceptual_questions: lessonDesign.lessonOverview?.guidingQuestions?.conceptual || [],
+        debatable_questions: lessonDesign.lessonOverview?.guidingQuestions?.debatable || [],
+        stage_engage: lessonDesign.stages?.engage || {},
+        stage_focus: lessonDesign.stages?.focus || {},
+        stage_investigate: lessonDesign.stages?.investigate || {},
+        stage_organize: lessonDesign.stages?.organize || {},
+        stage_generalize: lessonDesign.stages?.generalize || {},
+        stage_transfer: lessonDesign.stages?.transfer || {},
+        stage_reflect: lessonDesign.stages?.reflect || {},
+        assessment_plan: lessonDesign.assessmentPlan || {},
+        preparation: lessonDesign.preparation || [],
+        safety_notes: lessonDesign.safetyNotes || [],
+        differentiation: lessonDesign.differentiation || {},
+        status: 'generated' as const,
+        is_public: true,
+        view_count: 0,
+      };
+
       try {
         console.log('[lesson-form] createLesson 호출 시작...');
-        lessonId = await createLesson(user.uid, {
-          title: lessonDesign.lessonOverview?.title || `${formData.subject} ${formData.unit} ${formData.period}차시`,
-          publisher_id: formData.publisher,
-          subject_id: formData.subject,
-          unit_id: formData.unit,
-          grade: parseInt(formData.grade),
-          class_period: parseInt(formData.period) || 1,
-          duration: parseInt(formData.duration),
-          learning_objectives: formData.objectives.split('\n').filter((o) => o.trim()),
-          achievement_standards: formData.achievementStandards?.split('\n').filter((s) => s.trim()) || [],
-          core_concepts: lessonDesign.lessonOverview?.coreConcepts || [],
-          related_concepts: lessonDesign.lessonOverview?.relatedConcepts || [],
-          big_ideas: lessonDesign.lessonOverview?.bigIdeas || [],
-          factual_questions: lessonDesign.lessonOverview?.guidingQuestions?.factual || [],
-          conceptual_questions: lessonDesign.lessonOverview?.guidingQuestions?.conceptual || [],
-          debatable_questions: lessonDesign.lessonOverview?.guidingQuestions?.debatable || [],
-          stage_engage: lessonDesign.stages?.engage || {},
-          stage_focus: lessonDesign.stages?.focus || {},
-          stage_investigate: lessonDesign.stages?.investigate || {},
-          stage_organize: lessonDesign.stages?.organize || {},
-          stage_generalize: lessonDesign.stages?.generalize || {},
-          stage_transfer: lessonDesign.stages?.transfer || {},
-          stage_reflect: lessonDesign.stages?.reflect || {},
-          assessment_plan: lessonDesign.assessmentPlan || {},
-          preparation: lessonDesign.preparation || [],
-          safety_notes: lessonDesign.safetyNotes || [],
-          differentiation: lessonDesign.differentiation || {},
-          status: 'generated',
-          is_public: true, // 자동으로 공유 자료실에 공개
-          view_count: 0,
+
+        // 15초 타임아웃 적용
+        const savePromise = createLesson(user.uid, lessonData);
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('저장 타임아웃 - 네트워크 연결을 확인해주세요'));
+          }, 15000);
         });
+
+        lessonId = await Promise.race([savePromise, timeoutPromise]);
         console.log('[lesson-form] createLesson 성공! ID:', lessonId);
       } catch (saveError) {
         console.error('[lesson-form] createLesson 실패:', saveError);
-        throw new Error('수업 저장에 실패했습니다: ' + (saveError instanceof Error ? saveError.message : '알 수 없는 오류'));
+        const errorMsg = saveError instanceof Error ? saveError.message : '알 수 없는 오류';
+
+        // 타임아웃 시 더 자세한 안내
+        if (errorMsg.includes('타임아웃')) {
+          throw new Error('Firestore 연결 실패: 네트워크 또는 Firebase 설정을 확인해주세요. (Firebase Console에서 Firestore가 활성화되어 있는지 확인)');
+        }
+        throw new Error('수업 저장 실패: ' + errorMsg);
       }
 
       // 완료

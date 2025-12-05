@@ -11,7 +11,6 @@ import {
   query,
   where,
   limit,
-  orderBy,
   Timestamp,
   increment,
 } from 'firebase/firestore';
@@ -21,13 +20,14 @@ import type { Material } from '@/types/material';
 
 // ========== Lessons ==========
 
-// 수업 생성 (타임아웃 포함)
+// 수업 생성 (타임아웃 없이 직접 호출)
 export async function createLesson(
   userId: string,
   lessonData: Omit<Lesson, 'id' | 'user_id' | 'created_at' | 'updated_at'>
 ) {
   console.log('[createLesson] 시작 - userId:', userId);
   console.log('[createLesson] lessonData:', JSON.stringify(lessonData).slice(0, 200) + '...');
+  console.log('[createLesson] db 객체:', db ? '있음' : '없음');
 
   const now = Timestamp.now();
   const docData = {
@@ -40,37 +40,32 @@ export async function createLesson(
   };
 
   console.log('[createLesson] Firestore addDoc 호출 중...');
-
-  // 10초 타임아웃
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('Firestore 저장 타임아웃 (10초)')), 10000);
-  });
+  console.log('[createLesson] collection 경로: lessons');
 
   try {
-    const docRef = await Promise.race([
-      addDoc(collection(db, 'lessons'), docData),
-      timeoutPromise
-    ]);
+    const lessonsRef = collection(db, 'lessons');
+    console.log('[createLesson] collection ref 생성됨');
 
+    const docRef = await addDoc(lessonsRef, docData);
     console.log('[createLesson] 성공! ID:', docRef.id);
     return docRef.id;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('[createLesson] 실패:', error);
+    if (error instanceof Error) {
+      console.error('[createLesson] 에러 메시지:', error.message);
+      console.error('[createLesson] 에러 스택:', error.stack);
+    }
     throw error;
   }
 }
 
-// 수업 조회 (타임아웃 포함)
+// 수업 조회
 export async function getLesson(lessonId: string) {
   console.log('[getLesson] 시작 - lessonId:', lessonId);
 
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('Firestore 조회 타임아웃 (10초)')), 10000);
-  });
-
   try {
     const docRef = doc(db, 'lessons', lessonId);
-    const docSnap = await Promise.race([getDoc(docRef), timeoutPromise]);
+    const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
       const data = docSnap.data();
@@ -90,13 +85,9 @@ export async function getLesson(lessonId: string) {
   }
 }
 
-// 사용자의 모든 수업 조회 (타임아웃 포함)
+// 사용자의 모든 수업 조회
 export async function getUserLessons(userId: string, limitCount: number = 50) {
   console.log('[getUserLessons] 시작 - userId:', userId);
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('Firestore 목록 조회 타임아웃 (10초)')), 10000);
-  });
 
   try {
     const q = query(
@@ -105,7 +96,7 @@ export async function getUserLessons(userId: string, limitCount: number = 50) {
       limit(limitCount)
     );
 
-    const querySnapshot = await Promise.race([getDocs(q), timeoutPromise]);
+    const querySnapshot = await getDocs(q);
     console.log('[getUserLessons] 조회 완료 - 개수:', querySnapshot.docs.length);
 
     const lessons = querySnapshot.docs.map((doc) => {
@@ -126,13 +117,9 @@ export async function getUserLessons(userId: string, limitCount: number = 50) {
   }
 }
 
-// 공개 수업 조회 (자료실, 타임아웃 포함)
+// 공개 수업 조회 (자료실)
 export async function getPublicLessons(limitCount: number = 50) {
   console.log('[getPublicLessons] 시작');
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('Firestore 공개 목록 조회 타임아웃 (10초)')), 10000);
-  });
 
   try {
     const q = query(
@@ -140,8 +127,9 @@ export async function getPublicLessons(limitCount: number = 50) {
       where('is_public', '==', true),
       limit(limitCount)
     );
+    console.log('[getPublicLessons] 쿼리 생성됨');
 
-    const querySnapshot = await Promise.race([getDocs(q), timeoutPromise]);
+    const querySnapshot = await getDocs(q);
     console.log('[getPublicLessons] 조회 완료 - 개수:', querySnapshot.docs.length);
 
     const lessons = querySnapshot.docs.map((doc) => {
@@ -158,6 +146,9 @@ export async function getPublicLessons(limitCount: number = 50) {
     return lessons;
   } catch (error) {
     console.error('[getPublicLessons] 실패:', error);
+    if (error instanceof Error) {
+      console.error('[getPublicLessons] 에러 메시지:', error.message);
+    }
     return [];
   }
 }
@@ -356,31 +347,39 @@ export async function addGenerationHistory(
 
 // 생성 기록 조회 (간소화된 버전 - 수업 10개만 조회)
 export async function getGenerationHistory(userId: string, limitCount: number = 20) {
-  // 최근 수업 10개만 가져옴 (성능 최적화)
-  const lessons = await getUserLessons(userId, 10);
-  const lessonIds = lessons.map((l) => l.id);
+  try {
+    // 최근 수업 10개만 가져옴 (성능 최적화)
+    const lessons = await getUserLessons(userId, 10);
+    const lessonIds = lessons.map((l) => l.id);
 
-  if (lessonIds.length === 0) {
+    if (lessonIds.length === 0) {
+      return [];
+    }
+
+    // 단일 쿼리 (orderBy 제거하여 인덱스 불필요)
+    const q = query(
+      collection(db, 'generation_history'),
+      where('lesson_id', 'in', lessonIds),
+      limit(limitCount)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const results = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      const lesson = lessons.find((l) => l.id === data.lesson_id);
+      return {
+        id: doc.id,
+        ...data,
+        created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+        lesson: lesson ? { title: lesson.title } : null,
+      };
+    });
+
+    // 클라이언트에서 정렬
+    results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return results;
+  } catch (error) {
+    console.error('[getGenerationHistory] 실패:', error);
     return [];
   }
-
-  // 단일 쿼리로 최적화 (최대 10개 ID)
-  const q = query(
-    collection(db, 'generation_history'),
-    where('lesson_id', 'in', lessonIds),
-    orderBy('created_at', 'desc'),
-    limit(limitCount)
-  );
-
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map((doc) => {
-    const data = doc.data();
-    const lesson = lessons.find((l) => l.id === data.lesson_id);
-    return {
-      id: doc.id,
-      ...data,
-      created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-      lesson: lesson ? { title: lesson.title } : null,
-    };
-  });
 }

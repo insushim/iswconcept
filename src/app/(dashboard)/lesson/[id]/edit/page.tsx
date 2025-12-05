@@ -922,7 +922,7 @@ function PPTEditor({
             <div className="space-y-2">
               <Label>내용 (줄바꿈으로 구분)</Label>
               <Textarea
-                value={slide.content.join('\n')}
+                value={(slide.content || []).join('\n')}
                 onChange={(e) =>
                   updateSlide(index, {
                     content: e.target.value.split('\n').filter((line) => line.trim()),

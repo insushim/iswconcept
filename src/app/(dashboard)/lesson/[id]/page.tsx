@@ -142,7 +142,7 @@ export default function LessonDetailPage() {
             </CardHeader>
             <CardContent>
               <ul className="list-disc list-inside space-y-1">
-                {lesson.learning_objectives.map((obj, i) => (
+                {(lesson.learning_objectives || []).map((obj, i) => (
                   <li key={i}>{obj}</li>
                 ))}
               </ul>
@@ -160,15 +160,15 @@ export default function LessonDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {lesson.core_concepts.map((concept, i) => (
+                  {(lesson.core_concepts || []).map((concept, i) => (
                     <Badge key={i} variant="secondary">{concept}</Badge>
                   ))}
                 </div>
-                {lesson.related_concepts.length > 0 && (
+                {(lesson.related_concepts || []).length > 0 && (
                   <div className="mt-3">
                     <p className="text-sm text-muted-foreground mb-2">관련 개념:</p>
                     <div className="flex flex-wrap gap-2">
-                      {lesson.related_concepts.map((concept, i) => (
+                      {(lesson.related_concepts || []).map((concept, i) => (
                         <Badge key={i} variant="outline">{concept}</Badge>
                       ))}
                     </div>
@@ -186,7 +186,7 @@ export default function LessonDetailPage() {
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2">
-                  {lesson.big_ideas.map((idea, i) => (
+                  {(lesson.big_ideas || []).map((idea, i) => (
                     <li key={i} className="p-3 bg-purple-50 rounded-lg text-sm">
                       &ldquo;{idea}&rdquo;
                     </li>
@@ -208,7 +208,7 @@ export default function LessonDetailPage() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-2">사실적 질문</p>
                 <ul className="list-disc list-inside space-y-1">
-                  {lesson.factual_questions.map((q, i) => (
+                  {(lesson.factual_questions || []).map((q, i) => (
                     <li key={i} className="text-sm">{q}</li>
                   ))}
                 </ul>
@@ -216,7 +216,7 @@ export default function LessonDetailPage() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-2">개념적 질문</p>
                 <ul className="list-disc list-inside space-y-1">
-                  {lesson.conceptual_questions.map((q, i) => (
+                  {(lesson.conceptual_questions || []).map((q, i) => (
                     <li key={i} className="text-sm">{q}</li>
                   ))}
                 </ul>
@@ -224,7 +224,7 @@ export default function LessonDetailPage() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-2">논쟁적 질문</p>
                 <ul className="list-disc list-inside space-y-1">
-                  {lesson.debatable_questions.map((q, i) => (
+                  {(lesson.debatable_questions || []).map((q, i) => (
                     <li key={i} className="text-sm">{q}</li>
                   ))}
                 </ul>
@@ -352,11 +352,11 @@ export default function LessonDetailPage() {
                       <div className="p-3 bg-gray-50 rounded-lg space-y-2">
                         <p className="text-sm">
                           <span className="font-medium">방법: </span>
-                          {lesson.assessment_plan.formative.methods?.join(', ')}
+                          {(lesson.assessment_plan.formative.methods || []).join(', ') || '없음'}
                         </p>
                         <p className="text-sm">
                           <span className="font-medium">기준: </span>
-                          {lesson.assessment_plan.formative.criteria?.join(', ')}
+                          {(lesson.assessment_plan.formative.criteria || []).join(', ') || '없음'}
                         </p>
                       </div>
                     </div>
@@ -368,16 +368,19 @@ export default function LessonDetailPage() {
                       <div className="p-3 bg-gray-50 rounded-lg space-y-2">
                         <p className="text-sm">
                           <span className="font-medium">방법: </span>
-                          {lesson.assessment_plan.summative.methods?.join(', ')}
+                          {(lesson.assessment_plan.summative.methods || []).join(', ') || '없음'}
                         </p>
                         <p className="text-sm">
                           <span className="font-medium">기준: </span>
-                          {lesson.assessment_plan.summative.criteria?.join(', ')}
+                          {(lesson.assessment_plan.summative.criteria || []).join(', ') || '없음'}
                         </p>
                       </div>
                     </div>
                   )}
                 </>
+              )}
+              {!lesson.assessment_plan && (
+                <p className="text-muted-foreground">평가 계획이 없습니다.</p>
               )}
             </CardContent>
           </Card>
