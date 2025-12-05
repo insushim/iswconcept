@@ -21,57 +21,93 @@ import type { Material } from '@/types/material';
 
 // ========== Lessons ==========
 
-// 수업 생성
+// 수업 생성 (타임아웃 포함)
 export async function createLesson(
   userId: string,
   lessonData: Omit<Lesson, 'id' | 'user_id' | 'created_at' | 'updated_at'>
 ) {
-  try {
-    const now = Timestamp.now();
-    const docRef = await addDoc(collection(db, 'lessons'), {
-      ...lessonData,
-      user_id: userId,
-      is_public: lessonData.is_public ?? false,
-      view_count: lessonData.view_count ?? 0,
-      created_at: now,
-      updated_at: now,
-    });
+  console.log('[createLesson] 시작 - userId:', userId);
+  console.log('[createLesson] lessonData:', JSON.stringify(lessonData).slice(0, 200) + '...');
 
-    console.log('Lesson saved successfully:', docRef.id);
+  const now = Timestamp.now();
+  const docData = {
+    ...lessonData,
+    user_id: userId,
+    is_public: lessonData.is_public ?? false,
+    view_count: lessonData.view_count ?? 0,
+    created_at: now,
+    updated_at: now,
+  };
+
+  console.log('[createLesson] Firestore addDoc 호출 중...');
+
+  // 10초 타임아웃
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('Firestore 저장 타임아웃 (10초)')), 10000);
+  });
+
+  try {
+    const docRef = await Promise.race([
+      addDoc(collection(db, 'lessons'), docData),
+      timeoutPromise
+    ]);
+
+    console.log('[createLesson] 성공! ID:', docRef.id);
     return docRef.id;
   } catch (error) {
-    console.error('Error creating lesson:', error);
+    console.error('[createLesson] 실패:', error);
     throw error;
   }
 }
 
-// 수업 조회
+// 수업 조회 (타임아웃 포함)
 export async function getLesson(lessonId: string) {
-  const docRef = doc(db, 'lessons', lessonId);
-  const docSnap = await getDoc(docRef);
+  console.log('[getLesson] 시작 - lessonId:', lessonId);
 
-  if (docSnap.exists()) {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      ...data,
-      created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-      updated_at: data.updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-    } as Lesson;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('Firestore 조회 타임아웃 (10초)')), 10000);
+  });
+
+  try {
+    const docRef = doc(db, 'lessons', lessonId);
+    const docSnap = await Promise.race([getDoc(docRef), timeoutPromise]);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      console.log('[getLesson] 성공! 제목:', data.title);
+      return {
+        id: docSnap.id,
+        ...data,
+        created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+        updated_at: data.updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+      } as Lesson;
+    }
+    console.log('[getLesson] 문서 없음');
+    return null;
+  } catch (error) {
+    console.error('[getLesson] 실패:', error);
+    throw error;
   }
-  return null;
 }
 
-// 사용자의 모든 수업 조회
+// 사용자의 모든 수업 조회 (타임아웃 포함)
 export async function getUserLessons(userId: string, limitCount: number = 50) {
+  console.log('[getUserLessons] 시작 - userId:', userId);
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('Firestore 목록 조회 타임아웃 (10초)')), 10000);
+  });
+
   try {
     const q = query(
       collection(db, 'lessons'),
       where('user_id', '==', userId),
-      limit(limitCount * 2) // 정렬을 위해 여유있게 가져옴
+      limit(limitCount)
     );
 
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await Promise.race([getDocs(q), timeoutPromise]);
+    console.log('[getUserLessons] 조회 완료 - 개수:', querySnapshot.docs.length);
+
     const lessons = querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -82,25 +118,32 @@ export async function getUserLessons(userId: string, limitCount: number = 50) {
       } as Lesson;
     });
 
-    // 클라이언트에서 정렬
     lessons.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return lessons.slice(0, limitCount);
+    return lessons;
   } catch (error) {
-    console.error('Error fetching user lessons:', error);
+    console.error('[getUserLessons] 실패:', error);
     return [];
   }
 }
 
-// 공개 수업 조회 (자료실)
+// 공개 수업 조회 (자료실, 타임아웃 포함)
 export async function getPublicLessons(limitCount: number = 50) {
+  console.log('[getPublicLessons] 시작');
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('Firestore 공개 목록 조회 타임아웃 (10초)')), 10000);
+  });
+
   try {
     const q = query(
       collection(db, 'lessons'),
       where('is_public', '==', true),
-      limit(limitCount * 2) // 정렬을 위해 여유있게 가져옴
+      limit(limitCount)
     );
 
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await Promise.race([getDocs(q), timeoutPromise]);
+    console.log('[getPublicLessons] 조회 완료 - 개수:', querySnapshot.docs.length);
+
     const lessons = querySnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -111,11 +154,10 @@ export async function getPublicLessons(limitCount: number = 50) {
       } as Lesson;
     });
 
-    // 클라이언트에서 정렬
     lessons.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return lessons.slice(0, limitCount);
+    return lessons;
   } catch (error) {
-    console.error('Error fetching public lessons:', error);
+    console.error('[getPublicLessons] 실패:', error);
     return [];
   }
 }

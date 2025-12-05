@@ -207,9 +207,12 @@ export function LessonForm() {
       // Firestore에 수업 저장
       updateStep(3, 80, '저장 중...');
       const lessonDesign = data.lessonDesign;
+      console.log('[lesson-form] AI 응답 받음, Firestore 저장 시작...');
+      console.log('[lesson-form] lessonDesign:', lessonDesign ? '있음' : '없음');
 
       let lessonId: string;
       try {
+        console.log('[lesson-form] createLesson 호출 시작...');
         lessonId = await createLesson(user.uid, {
           title: lessonDesign.lessonOverview?.title || `${formData.subject} ${formData.unit} ${formData.period}차시`,
           publisher_id: formData.publisher,
@@ -241,13 +244,14 @@ export function LessonForm() {
           is_public: true, // 자동으로 공유 자료실에 공개
           view_count: 0,
         });
-        console.log('Lesson created with ID:', lessonId);
+        console.log('[lesson-form] createLesson 성공! ID:', lessonId);
       } catch (saveError) {
-        console.error('Failed to save lesson:', saveError);
-        throw new Error('수업 저장에 실패했습니다. 다시 시도해주세요.');
+        console.error('[lesson-form] createLesson 실패:', saveError);
+        throw new Error('수업 저장에 실패했습니다: ' + (saveError instanceof Error ? saveError.message : '알 수 없는 오류'));
       }
 
       // 완료
+      console.log('[lesson-form] 완료 처리 중...');
       const completedSteps = steps.map((s) => ({ ...s, status: 'completed' as const }));
       updateProgress({ steps: completedSteps, percentage: 100, currentStep: '완료!' });
 
@@ -258,16 +262,15 @@ export function LessonForm() {
       });
 
       // 수업 설계 자료 저장 (백그라운드에서 처리 - 페이지 이동에 영향 없음)
+      console.log('[lesson-form] Material 백그라운드 저장 시작...');
       createMaterial(lessonId, 'lesson_plan', '교수학습지도안', lessonDesign)
-        .then(() => console.log('Material created for lesson:', lessonId))
-        .catch((err) => console.error('Failed to save material:', err));
+        .then(() => console.log('[lesson-form] Material 저장 완료'))
+        .catch((err) => console.error('[lesson-form] Material 저장 실패:', err));
 
-      console.log('Redirecting to:', `/lesson/${lessonId}`);
+      console.log('[lesson-form] 페이지 이동:', `/lesson/${lessonId}`);
 
-      // 약간의 지연 후 페이지 이동 (상태 업데이트 완료 대기)
-      setTimeout(() => {
-        window.location.href = `/lesson/${lessonId}`;
-      }, 100);
+      // 즉시 페이지 이동
+      window.location.href = `/lesson/${lessonId}`;
     } catch (error) {
       console.error('Generation error:', error);
       setError(error instanceof Error ? error.message : '수업 생성 중 오류가 발생했습니다.');
