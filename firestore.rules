@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 수업 - 본인 것은 모두 가능, 공개 수업은 누구나 읽기 가능
+    match /lessons/{lessonId} {
+      allow read: if request.auth != null && (
+        resource.data.user_id == request.auth.uid ||
+        resource.data.is_public == true
+      );
+      allow create: if request.auth != null &&
+        request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if request.auth != null &&
+        resource.data.user_id == request.auth.uid;
+    }
+
+    // 자료 - 인증된 사용자 모두 접근 가능
+    match /materials/{materialId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 사용자 프로필
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // 생성 기록
+    match /generation_history/{historyId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+  }
+}
