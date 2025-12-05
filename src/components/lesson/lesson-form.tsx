@@ -247,20 +247,6 @@ export function LessonForm() {
         throw new Error('수업 저장에 실패했습니다. 다시 시도해주세요.');
       }
 
-      // 수업 설계 자료 저장 (대본, PPT, 학습지는 나중에 별도 생성)
-      try {
-        await createMaterial(lessonId, 'lesson_plan', '교수학습지도안', lessonDesign);
-        console.log('Material created for lesson:', lessonId);
-      } catch (materialError) {
-        console.error('Failed to save material:', materialError);
-        // 자료 저장 실패는 경고만 표시하고 계속 진행
-        toast({
-          title: '경고',
-          description: '교수학습지도안 저장에 일부 문제가 있습니다.',
-          variant: 'default',
-        });
-      }
-
       // 완료
       const completedSteps = steps.map((s) => ({ ...s, status: 'completed' as const }));
       updateProgress({ steps: completedSteps, percentage: 100, currentStep: '완료!' });
@@ -270,6 +256,11 @@ export function LessonForm() {
         description: '수업 설계가 성공적으로 완료되었습니다.',
         variant: 'success',
       });
+
+      // 수업 설계 자료 저장 (백그라운드에서 처리)
+      createMaterial(lessonId, 'lesson_plan', '교수학습지도안', lessonDesign)
+        .then(() => console.log('Material created for lesson:', lessonId))
+        .catch((err) => console.error('Failed to save material:', err));
 
       // 생성된 수업 페이지로 이동
       router.push(`/lesson/${lessonId}`);

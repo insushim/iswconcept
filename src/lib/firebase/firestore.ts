@@ -65,44 +65,60 @@ export async function getLesson(lessonId: string) {
 
 // 사용자의 모든 수업 조회
 export async function getUserLessons(userId: string, limitCount: number = 50) {
-  const q = query(
-    collection(db, 'lessons'),
-    where('user_id', '==', userId),
-    orderBy('created_at', 'desc'),
-    limit(limitCount)
-  );
+  try {
+    const q = query(
+      collection(db, 'lessons'),
+      where('user_id', '==', userId),
+      limit(limitCount * 2) // 정렬을 위해 여유있게 가져옴
+    );
 
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map((doc) => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      ...data,
-      created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-      updated_at: data.updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-    } as Lesson;
-  });
+    const querySnapshot = await getDocs(q);
+    const lessons = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+        updated_at: data.updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+      } as Lesson;
+    });
+
+    // 클라이언트에서 정렬
+    lessons.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return lessons.slice(0, limitCount);
+  } catch (error) {
+    console.error('Error fetching user lessons:', error);
+    return [];
+  }
 }
 
 // 공개 수업 조회 (자료실)
 export async function getPublicLessons(limitCount: number = 50) {
-  const q = query(
-    collection(db, 'lessons'),
-    where('is_public', '==', true),
-    orderBy('created_at', 'desc'),
-    limit(limitCount)
-  );
+  try {
+    const q = query(
+      collection(db, 'lessons'),
+      where('is_public', '==', true),
+      limit(limitCount * 2) // 정렬을 위해 여유있게 가져옴
+    );
 
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map((doc) => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      ...data,
-      created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-      updated_at: data.updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-    } as Lesson;
-  });
+    const querySnapshot = await getDocs(q);
+    const lessons = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+        updated_at: data.updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+      } as Lesson;
+    });
+
+    // 클라이언트에서 정렬
+    lessons.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return lessons.slice(0, limitCount);
+  } catch (error) {
+    console.error('Error fetching public lessons:', error);
+    return [];
+  }
 }
 
 // 수업 업데이트
@@ -165,7 +181,7 @@ export async function deleteLesson(lessonId: string) {
 
 // ========== Materials ==========
 
-// 자료 생성
+// 자료 생성 (간소화 - 버전 관리 없이 바로 저장)
 export async function createMaterial(
   lessonId: string,
   type: Material['type'],
@@ -173,29 +189,17 @@ export async function createMaterial(
   content: unknown
 ) {
   try {
-    // 기존 최신 버전 비활성화
-    const existingMaterials = await getMaterialsByLessonAndType(lessonId, type);
-    for (const material of existingMaterials) {
-      if (material.is_latest) {
-        await updateDoc(doc(db, 'materials', material.id), {
-          is_latest: false,
-          content: null, // 비용 최적화: 구버전 내용 삭제
-        });
-      }
-    }
-
     const docRef = await addDoc(collection(db, 'materials'), {
       lesson_id: lessonId,
       type,
       title,
       content,
-      version: existingMaterials.length + 1,
+      version: 1,
       is_latest: true,
       created_at: serverTimestamp(),
       updated_at: serverTimestamp(),
     });
 
-    // addDoc이 성공적으로 반환되면 문서가 생성된 것임
     console.log('Material saved successfully:', docRef.id);
     return docRef.id;
   } catch (error) {
