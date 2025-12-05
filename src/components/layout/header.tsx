@@ -108,11 +108,11 @@ export function Header({ user, onMenuClick }: HeaderProps) {
             </Button>
           </Link>
 
-          {/* Notifications */}
+          {/* Notifications - hidden on small mobile */}
           <Button
             variant="ghost"
             size="icon"
-            className="relative hover:bg-secondary"
+            className="relative hover:bg-secondary hidden xs:flex"
           >
             <Bell className="h-5 w-5 text-muted-foreground" />
             <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
@@ -141,7 +141,7 @@ export function Header({ user, onMenuClick }: HeaderProps) {
 
               {/* Dropdown menu */}
               {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-card rounded-xl border shadow-lg shadow-black/5 py-1 animate-fade-in">
+                <div className="absolute right-0 mt-2 w-56 bg-card rounded-xl border shadow-lg shadow-black/5 py-1 animate-fade-in z-50">
                   <div className="px-4 py-3 border-b">
                     <p className="text-sm font-medium">{user.displayName || '사용자'}</p>
                     <p className="text-xs text-muted-foreground truncate">{user.email}</p>

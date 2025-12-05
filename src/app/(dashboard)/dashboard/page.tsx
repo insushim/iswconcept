@@ -91,35 +91,34 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Hero Section */}
-      <div className="relative overflow-hidden rounded-3xl gradient-primary p-8 md:p-10">
+      <div className="relative overflow-hidden rounded-2xl md:rounded-3xl gradient-primary p-5 md:p-10">
         {/* Background decorations */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4" />
-        <div className="absolute top-1/2 right-1/4 w-32 h-32 bg-white/5 rounded-full blur-xl" />
 
-        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white/90 text-sm">
-              <Sparkles className="w-4 h-4" />
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-6">
+          <div className="space-y-3 md:space-y-4">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white/90 text-xs md:text-sm">
+              <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4" />
               <span>AI 기반 수업 설계</span>
             </div>
             <div>
-              <p className="text-white/70 mb-1">{getGreeting()}, {userName || '선생님'}!</p>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">
+              <p className="text-white/70 text-sm md:text-base mb-1">{getGreeting()}, {userName || '선생님'}!</p>
+              <h1 className="text-xl md:text-3xl font-bold text-white leading-tight">
                 전북형 개념기반탐구
                 <br className="md:hidden" />
-                <span className="md:ml-2">AI 수업설계 시스템</span>
+                <span className="md:ml-2">AI 수업설계</span>
               </h1>
             </div>
-            <p className="text-white/70 max-w-lg leading-relaxed">
+            <p className="text-white/70 text-sm md:text-base max-w-lg leading-relaxed hidden md:block">
               AI와 함께 7단계 개념기반탐구 수업을 손쉽게 설계하세요.
               교수학습지도안, 수업 대본, PPT, 학습지가 자동으로 생성됩니다.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Link href="/lesson/new">
-              <Button size="lg" className="w-full sm:w-auto bg-white text-primary hover:bg-white/90 shadow-lg shadow-black/10 font-medium">
-                <Sparkles className="mr-2 h-5 w-5" />
+          <div className="flex">
+            <Link href="/lesson/new" className="w-full md:w-auto">
+              <Button size="lg" className="w-full md:w-auto bg-white text-primary hover:bg-white/90 shadow-lg shadow-black/10 font-medium h-11 md:h-12">
+                <Sparkles className="mr-2 h-4 w-4 md:h-5 md:w-5" />
                 새 수업 만들기
               </Button>
             </Link>
@@ -128,7 +127,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2 md:gap-4">
         {[
           {
             title: '전체 수업',
@@ -156,15 +155,15 @@ export default function DashboardPage() {
           },
         ].map((stat, index) => (
           <Card key={index} className="card-hover border-0 shadow-sm bg-card/80 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                  <p className="text-3xl font-bold tracking-tight">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">{stat.description}</p>
+            <CardContent className="p-3 md:p-6">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
+                <div className="space-y-0.5 md:space-y-1">
+                  <p className="text-xs md:text-sm font-medium text-muted-foreground">{stat.title}</p>
+                  <p className="text-2xl md:text-3xl font-bold tracking-tight">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground hidden md:block">{stat.description}</p>
                 </div>
-                <div className={`p-3 rounded-xl ${stat.iconBg}`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color.split(' ')[1]}`} />
+                <div className={`p-2 md:p-3 rounded-lg md:rounded-xl ${stat.iconBg} self-start`}>
+                  <stat.icon className={`h-4 w-4 md:h-5 md:w-5 ${stat.color.split(' ')[1]}`} />
                 </div>
               </div>
             </CardContent>
@@ -174,19 +173,19 @@ export default function DashboardPage() {
 
       {/* Quick Start Guide */}
       <Card className="border-0 shadow-sm bg-card/80 backdrop-blur-sm overflow-hidden">
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-primary/10">
-              <Zap className="h-5 w-5 text-primary" />
+        <CardHeader className="pb-3 md:pb-4 px-4 md:px-6">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="p-1.5 md:p-2 rounded-lg md:rounded-xl bg-primary/10">
+              <Zap className="h-4 w-4 md:h-5 md:w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg">빠른 시작 가이드</CardTitle>
-              <CardDescription>3단계로 완벽한 개념기반탐구 수업을 설계하세요</CardDescription>
+              <CardTitle className="text-base md:text-lg">빠른 시작 가이드</CardTitle>
+              <CardDescription className="text-xs md:text-sm">3단계로 개념기반탐구 수업 설계</CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CardContent className="px-4 md:px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
             {[
               {
                 step: '1',
@@ -215,15 +214,15 @@ export default function DashboardPage() {
             ].map((item, index) => (
               <div
                 key={index}
-                className={`relative group p-5 rounded-2xl bg-gradient-to-br ${item.gradient} hover:scale-[1.02] transition-all duration-300`}
+                className={`relative group p-3 md:p-5 rounded-xl md:rounded-2xl bg-gradient-to-br ${item.gradient} hover:scale-[1.02] transition-all duration-300`}
               >
-                <div className="flex items-start gap-4">
-                  <div className={`flex-shrink-0 w-10 h-10 rounded-xl ${item.bgColor} flex items-center justify-center text-white font-bold text-sm shadow-lg`}>
+                <div className="flex items-center md:items-start gap-3 md:gap-4">
+                  <div className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl ${item.bgColor} flex items-center justify-center text-white font-bold text-xs md:text-sm shadow-lg`}>
                     {item.step}
                   </div>
-                  <div>
-                    <h4 className="font-semibold mb-1">{item.title}</h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-sm md:text-base md:mb-1">{item.title}</h4>
+                    <p className="text-xs md:text-sm text-muted-foreground leading-relaxed line-clamp-2">{item.description}</p>
                   </div>
                 </div>
                 {index < 2 && (

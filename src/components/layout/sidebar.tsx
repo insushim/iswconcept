@@ -91,7 +91,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+      <nav className="flex-1 p-3 md:p-4 space-y-1 overflow-y-auto">
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           return (
@@ -100,7 +100,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                'group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+                'group flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-xl text-sm font-medium transition-all duration-200 active:scale-[0.98]',
                 isActive
                   ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
                   : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
@@ -108,7 +108,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
               )}
             >
               <div className={cn(
-                'flex items-center justify-center w-8 h-8 rounded-lg transition-colors',
+                'flex items-center justify-center w-9 h-9 md:w-8 md:h-8 rounded-lg transition-colors',
                 isActive
                   ? 'bg-white/20'
                   : item.highlight
@@ -116,21 +116,22 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
                     : 'bg-secondary group-hover:bg-secondary'
               )}>
                 <item.icon className={cn(
-                  'h-4 w-4',
+                  'h-5 w-5 md:h-4 md:w-4',
                   isActive ? 'text-white' : item.highlight ? 'text-primary' : ''
                 )} />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className={cn(
+                  'truncate',
                   isActive ? 'text-white' : ''
                 )}>{item.name}</p>
                 <p className={cn(
-                  'text-xs transition-colors',
+                  'text-xs transition-colors truncate hidden md:block',
                   isActive ? 'text-white/70' : 'text-muted-foreground'
                 )}>{item.description}</p>
               </div>
               {item.highlight && !isActive && (
-                <Zap className="h-4 w-4 text-primary" />
+                <Zap className="h-4 w-4 text-primary flex-shrink-0" />
               )}
             </Link>
           );
@@ -138,11 +139,11 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       </nav>
 
       {/* Bottom section */}
-      <div className="p-4 space-y-4">
-        {/* Help card */}
+      <div className="p-3 md:p-4 space-y-3 md:space-y-4">
+        {/* Help card - hidden on mobile */}
         <Link
           href="#"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:bg-secondary transition-colors"
+          className="hidden md:flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:bg-secondary transition-colors"
         >
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-secondary">
             <HelpCircle className="h-4 w-4" />
@@ -150,22 +151,24 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
           <span>도움말</span>
         </Link>
 
-        {/* Info card */}
-        <div className="relative overflow-hidden rounded-2xl p-4 gradient-primary">
+        {/* Info card - simplified on mobile */}
+        <div className="relative overflow-hidden rounded-2xl p-3 md:p-4 gradient-primary">
           {/* Background decoration */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full blur-xl translate-y-1/2 -translate-x-1/2" />
 
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center mb-3">
+          <div className="relative flex items-center gap-3 md:block">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center md:mb-3 flex-shrink-0">
               <Zap className="w-5 h-5 text-white" />
             </div>
-            <h4 className="font-semibold text-white mb-1">
-              전북형 개념기반탐구
-            </h4>
-            <p className="text-xs text-white/70 leading-relaxed">
-              AI가 7단계 수업을 자동으로 설계해드립니다
-            </p>
+            <div>
+              <h4 className="font-semibold text-white text-sm md:text-base md:mb-1">
+                전북형 개념기반탐구
+              </h4>
+              <p className="text-xs text-white/70 leading-relaxed hidden md:block">
+                AI가 7단계 수업을 자동으로 설계해드립니다
+              </p>
+            </div>
           </div>
         </div>
 

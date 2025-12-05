@@ -174,50 +174,51 @@ function EditPageContent() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 md:space-y-6 animate-fade-in">
       {/* 헤더 */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+      <div className="flex flex-col gap-3 md:gap-4">
+        <div className="flex items-start gap-3 md:gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="flex-shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-2xl font-bold">수업 편집</h1>
-            <p className="text-muted-foreground">{lesson.title}</p>
+          <div className="min-w-0">
+            <h1 className="text-lg md:text-2xl font-bold">수업 편집</h1>
+            <p className="text-sm md:text-base text-muted-foreground truncate">{lesson.title}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3 ml-12 md:ml-0 flex-wrap">
           {/* 공개/비공개 토글 */}
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50">
+          <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-lg bg-secondary/50 text-xs md:text-sm">
             {editedLesson.is_public ? (
-              <Globe className="h-4 w-4 text-green-600" />
+              <Globe className="h-3.5 w-3.5 md:h-4 md:w-4 text-green-600" />
             ) : (
-              <Lock className="h-4 w-4 text-muted-foreground" />
+              <Lock className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
             )}
-            <span className="text-sm">{editedLesson.is_public ? '공개' : '비공개'}</span>
+            <span className="hidden xs:inline">{editedLesson.is_public ? '공개' : '비공개'}</span>
             <Switch
               checked={editedLesson.is_public || false}
               onCheckedChange={handleTogglePublic}
+              className="scale-90 md:scale-100"
             />
           </div>
 
           <Link href={`/lesson/${lesson.id}`}>
-            <Button variant="outline">취소</Button>
+            <Button variant="outline" size="sm" className="text-xs md:text-sm h-8 md:h-9">취소</Button>
           </Link>
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="gradient-primary text-white"
+            className="gradient-primary text-white text-xs md:text-sm h-8 md:h-9"
           >
             {saving ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                저장 중...
+                <Loader2 className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4 animate-spin" />
+                <span className="hidden xs:inline">저장 중...</span>
               </>
             ) : (
               <>
-                <Save className="mr-2 h-4 w-4" />
+                <Save className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
                 저장
               </>
             )}
@@ -225,51 +226,51 @@ function EditPageContent() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-5 w-full max-w-2xl">
-          <TabsTrigger value="lesson" className="flex items-center gap-1">
-            <FileText className="h-4 w-4" />
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3 md:space-y-4">
+        <TabsList className="grid grid-cols-5 w-full max-w-2xl h-9 md:h-10">
+          <TabsTrigger value="lesson" className="flex items-center gap-1 text-xs md:text-sm px-1 md:px-3">
+            <FileText className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">기본정보</span>
           </TabsTrigger>
-          <TabsTrigger value="stages" className="flex items-center gap-1">
-            <BookOpen className="h-4 w-4" />
+          <TabsTrigger value="stages" className="flex items-center gap-1 text-xs md:text-sm px-1 md:px-3">
+            <BookOpen className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">7단계</span>
           </TabsTrigger>
-          <TabsTrigger value="lesson_plan" className="flex items-center gap-1">
-            <FileText className="h-4 w-4" />
+          <TabsTrigger value="lesson_plan" className="flex items-center gap-1 text-xs md:text-sm px-1 md:px-3">
+            <FileText className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">지도안</span>
           </TabsTrigger>
-          <TabsTrigger value="pptx" className="flex items-center gap-1">
-            <Presentation className="h-4 w-4" />
+          <TabsTrigger value="pptx" className="flex items-center gap-1 text-xs md:text-sm px-1 md:px-3">
+            <Presentation className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">PPT</span>
           </TabsTrigger>
-          <TabsTrigger value="worksheet" className="flex items-center gap-1">
-            <FileSpreadsheet className="h-4 w-4" />
+          <TabsTrigger value="worksheet" className="flex items-center gap-1 text-xs md:text-sm px-1 md:px-3">
+            <FileSpreadsheet className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">학습지</span>
           </TabsTrigger>
         </TabsList>
 
         {/* 기본정보 탭 */}
-        <TabsContent value="lesson" className="space-y-4">
+        <TabsContent value="lesson" className="space-y-3 md:space-y-4">
           <Card className="border-0 shadow-sm bg-card/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle>기본 정보</CardTitle>
+            <CardHeader className="p-4 md:p-6 pb-2 md:pb-4">
+              <CardTitle className="text-base md:text-lg">기본 정보</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">수업 제목</Label>
+            <CardContent className="p-4 md:p-6 pt-0 md:pt-0 space-y-3 md:space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                <div className="space-y-1.5 md:space-y-2">
+                  <Label htmlFor="title" className="text-xs md:text-sm">수업 제목</Label>
                   <Input
                     id="title"
                     value={editedLesson.title || ''}
                     onChange={(e) =>
                       setEditedLesson({ ...editedLesson, title: e.target.value })
                     }
-                    className="h-11 bg-secondary/50 border-0"
+                    className="h-9 md:h-11 bg-secondary/50 border-0 text-sm md:text-base"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="duration">수업 시간 (분)</Label>
+                <div className="space-y-1.5 md:space-y-2">
+                  <Label htmlFor="duration" className="text-xs md:text-sm">수업 시간 (분)</Label>
                   <Input
                     id="duration"
                     type="number"
@@ -280,15 +281,15 @@ function EditPageContent() {
                         duration: parseInt(e.target.value),
                       })
                     }
-                    className="h-11 bg-secondary/50 border-0"
+                    className="h-9 md:h-11 bg-secondary/50 border-0 text-sm md:text-base"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>학습 목표</Label>
+              <div className="space-y-1.5 md:space-y-2">
+                <Label className="text-xs md:text-sm">학습 목표</Label>
                 {editedLesson.learning_objectives?.map((obj, i) => (
-                  <div key={i} className="flex gap-2">
+                  <div key={i} className="flex gap-1.5 md:gap-2">
                     <Input
                       value={obj}
                       onChange={(e) => {
@@ -296,11 +297,12 @@ function EditPageContent() {
                         newObjectives[i] = e.target.value;
                         setEditedLesson({ ...editedLesson, learning_objectives: newObjectives });
                       }}
-                      className="bg-secondary/50 border-0"
+                      className="bg-secondary/50 border-0 text-sm md:text-base h-9 md:h-10"
                     />
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-9 w-9 md:h-10 md:w-10 flex-shrink-0"
                       onClick={() => {
                         const newObjectives = editedLesson.learning_objectives?.filter(
                           (_, idx) => idx !== i
@@ -308,13 +310,14 @@ function EditPageContent() {
                         setEditedLesson({ ...editedLesson, learning_objectives: newObjectives });
                       }}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
                     </Button>
                   </div>
                 ))}
                 <Button
                   variant="outline"
                   size="sm"
+                  className="text-xs md:text-sm h-8 md:h-9"
                   onClick={() => {
                     setEditedLesson({
                       ...editedLesson,
@@ -322,16 +325,16 @@ function EditPageContent() {
                     });
                   }}
                 >
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
                   목표 추가
                 </Button>
               </div>
 
-              <div className="space-y-2">
-                <Label>핵심 개념</Label>
-                <div className="flex flex-wrap gap-2">
+              <div className="space-y-1.5 md:space-y-2">
+                <Label className="text-xs md:text-sm">핵심 개념</Label>
+                <div className="flex flex-wrap gap-1.5 md:gap-2">
                   {editedLesson.core_concepts?.map((concept, i) => (
-                    <Badge key={i} variant="secondary" className="flex items-center gap-1">
+                    <Badge key={i} variant="secondary" className="flex items-center gap-1 text-xs md:text-sm">
                       {concept}
                       <button
                         onClick={() => {
@@ -348,7 +351,7 @@ function EditPageContent() {
                   ))}
                   <Input
                     placeholder="새 개념 입력 후 Enter"
-                    className="w-40 h-8 bg-secondary/50 border-0"
+                    className="w-32 md:w-40 h-7 md:h-8 bg-secondary/50 border-0 text-xs md:text-sm"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         const value = e.currentTarget.value.trim();
@@ -365,10 +368,10 @@ function EditPageContent() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>핵심 아이디어 (일반화)</Label>
+              <div className="space-y-1.5 md:space-y-2">
+                <Label className="text-xs md:text-sm">핵심 아이디어 (일반화)</Label>
                 {editedLesson.big_ideas?.map((idea, i) => (
-                  <div key={i} className="flex gap-2">
+                  <div key={i} className="flex gap-1.5 md:gap-2">
                     <Textarea
                       value={idea}
                       onChange={(e) => {
@@ -376,23 +379,25 @@ function EditPageContent() {
                         newIdeas[i] = e.target.value;
                         setEditedLesson({ ...editedLesson, big_ideas: newIdeas });
                       }}
-                      className="min-h-[60px] bg-secondary/50 border-0"
+                      className="min-h-[50px] md:min-h-[60px] bg-secondary/50 border-0 text-sm md:text-base"
                     />
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-9 w-9 md:h-10 md:w-10 flex-shrink-0"
                       onClick={() => {
                         const newIdeas = editedLesson.big_ideas?.filter((_, idx) => idx !== i);
                         setEditedLesson({ ...editedLesson, big_ideas: newIdeas });
                       }}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
                     </Button>
                   </div>
                 ))}
                 <Button
                   variant="outline"
                   size="sm"
+                  className="text-xs md:text-sm h-8 md:h-9"
                   onClick={() => {
                     setEditedLesson({
                       ...editedLesson,
@@ -400,7 +405,7 @@ function EditPageContent() {
                     });
                   }}
                 >
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
                   아이디어 추가
                 </Button>
               </div>
@@ -409,10 +414,10 @@ function EditPageContent() {
 
           {/* 안내 질문 편집 */}
           <Card className="border-0 shadow-sm bg-card/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle>안내 질문</CardTitle>
+            <CardHeader className="p-4 md:p-6 pb-2 md:pb-4">
+              <CardTitle className="text-base md:text-lg">안내 질문</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="p-4 md:p-6 pt-0 md:pt-0 space-y-3 md:space-y-4">
               <QuestionsEditor
                 title="사실적 질문"
                 questions={editedLesson.factual_questions || []}
@@ -523,10 +528,10 @@ function QuestionsEditor({
   onChange: (questions: string[]) => void;
 }) {
   return (
-    <div className="space-y-2">
-      <Label>{title}</Label>
+    <div className="space-y-1.5 md:space-y-2">
+      <Label className="text-xs md:text-sm">{title}</Label>
       {questions.map((q, i) => (
-        <div key={i} className="flex gap-2">
+        <div key={i} className="flex gap-1.5 md:gap-2">
           <Input
             value={q}
             onChange={(e) => {
@@ -534,19 +539,20 @@ function QuestionsEditor({
               newQuestions[i] = e.target.value;
               onChange(newQuestions);
             }}
-            className="bg-secondary/50 border-0"
+            className="bg-secondary/50 border-0 text-sm md:text-base h-9 md:h-10"
           />
           <Button
             variant="ghost"
             size="icon"
+            className="h-9 w-9 md:h-10 md:w-10 flex-shrink-0"
             onClick={() => onChange(questions.filter((_, idx) => idx !== i))}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
           </Button>
         </div>
       ))}
-      <Button variant="outline" size="sm" onClick={() => onChange([...questions, ''])}>
-        <Plus className="mr-2 h-4 w-4" />
+      <Button variant="outline" size="sm" className="text-xs md:text-sm h-8 md:h-9" onClick={() => onChange([...questions, ''])}>
+        <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
         질문 추가
       </Button>
     </div>
@@ -573,40 +579,40 @@ function StageEditor({
   return (
     <Card className="border-0 shadow-sm bg-card/80 backdrop-blur-sm">
       <CardHeader
-        className="cursor-pointer"
+        className="cursor-pointer p-3 md:p-6"
         onClick={() => setIsExpanded(!isExpanded)}
         style={{ borderLeftWidth: 4, borderLeftColor: stageInfo.color }}
       >
         <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2 text-sm md:text-base">
             <span>{stageInfo.emoji}</span>
             <span>{stageInfo.name}</span>
-            <span className="text-sm text-muted-foreground">({stageInfo.nameEn})</span>
+            <span className="text-xs md:text-sm text-muted-foreground">({stageInfo.nameEn})</span>
           </div>
-          {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+          {isExpanded ? <ChevronUp className="h-4 w-4 md:h-5 md:w-5" /> : <ChevronDown className="h-4 w-4 md:h-5 md:w-5" />}
         </CardTitle>
       </CardHeader>
 
       {isExpanded && (
-        <CardContent className="space-y-4">
+        <CardContent className="p-3 md:p-6 pt-0 space-y-3 md:space-y-4">
           {/* 시간 */}
-          <div className="space-y-2">
-            <Label>소요 시간 (분)</Label>
+          <div className="space-y-1.5 md:space-y-2">
+            <Label className="text-xs md:text-sm">소요 시간 (분)</Label>
             <Input
               type="number"
               value={stageData.duration || stageInfo.defaultDuration}
               onChange={(e) =>
                 onChange({ ...stageData, duration: parseInt(e.target.value) })
               }
-              className="w-24 bg-secondary/50 border-0"
+              className="w-20 md:w-24 bg-secondary/50 border-0 h-9 md:h-10 text-sm md:text-base"
             />
           </div>
 
           {/* 목표 */}
-          <div className="space-y-2">
-            <Label>단계 목표</Label>
+          <div className="space-y-1.5 md:space-y-2">
+            <Label className="text-xs md:text-sm">단계 목표</Label>
             {stageData.objectives?.map((obj, i) => (
-              <div key={i} className="flex gap-2">
+              <div key={i} className="flex gap-1.5 md:gap-2">
                 <Input
                   value={obj}
                   onChange={(e) => {
@@ -614,23 +620,25 @@ function StageEditor({
                     newObjectives[i] = e.target.value;
                     onChange({ ...stageData, objectives: newObjectives });
                   }}
-                  className="bg-secondary/50 border-0"
+                  className="bg-secondary/50 border-0 text-sm md:text-base h-9 md:h-10"
                 />
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="h-9 w-9 md:h-10 md:w-10 flex-shrink-0"
                   onClick={() => {
                     const newObjectives = stageData.objectives?.filter((_, idx) => idx !== i);
                     onChange({ ...stageData, objectives: newObjectives });
                   }}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
                 </Button>
               </div>
             ))}
             <Button
               variant="outline"
               size="sm"
+              className="text-xs md:text-sm h-8 md:h-9"
               onClick={() =>
                 onChange({
                   ...stageData,
@@ -638,7 +646,7 @@ function StageEditor({
                 })
               }
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="mr-1 md:mr-2 h-3.5 w-3.5 md:h-4 md:w-4" />
               목표 추가
             </Button>
           </div>
