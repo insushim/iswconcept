@@ -126,6 +126,7 @@ export function LessonForm() {
     // 진행 상태 업데이트
     const steps: Array<{ id: string; name: string; status: 'pending' | 'in_progress' | 'completed' }> = [
       { id: 'analysis', name: '단원 설계', status: 'in_progress' },
+      { id: 'lessonplan', name: '지도안', status: 'pending' },
       { id: 'script', name: '수업 대본', status: 'pending' },
       { id: 'ppt', name: 'PPT 자료', status: 'pending' },
       { id: 'worksheet', name: '학습지', status: 'pending' },
@@ -189,7 +190,7 @@ export function LessonForm() {
       }
 
       const lessonDesign = data.lessonDesign;
-      updateStep(0, 20, '단원 설계 완료!');
+      updateStep(0, 15, '단원 설계 완료!');
 
       // lessonData 구성
       const lessonData = {
@@ -226,8 +227,32 @@ export function LessonForm() {
         view_count: 0,
       };
 
-      // 2단계: 수업 대본 생성
-      updateStep(1, 35, '수업 대본 생성 중...');
+      // 2단계: 지도안(도입-전개-정리) 생성
+      updateStep(1, 25, '교수학습지도안 생성 중...');
+      let lessonPlanDocxContent = null;
+      try {
+        const lessonPlanResponse = await fetch('/api/lesson/generate-materials', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            lessonId: 'temp',
+            type: 'lesson_plan_docx',
+            lessonData,
+          }),
+        });
+        if (lessonPlanResponse.ok) {
+          const lessonPlanData = await lessonPlanResponse.json();
+          lessonPlanDocxContent = lessonPlanData.content;
+        }
+      } catch (e) {
+        console.error('지도안 생성 실패:', e);
+      }
+
+      // 3단계: 수업 대본 생성
+      updateStep(2, 40, '수업 대본 생성 중...');
       let scriptContent = null;
       try {
         const scriptResponse = await fetch('/api/lesson/generate-materials', {
@@ -250,8 +275,8 @@ export function LessonForm() {
         console.error('수업 대본 생성 실패:', e);
       }
 
-      // 3단계: PPT 자료 생성
-      updateStep(2, 55, 'PPT 자료 생성 중...');
+      // 4단계: PPT 자료 생성
+      updateStep(3, 55, 'PPT 자료 생성 중...');
       let pptContent = null;
       try {
         const pptResponse = await fetch('/api/lesson/generate-materials', {
@@ -274,8 +299,8 @@ export function LessonForm() {
         console.error('PPT 생성 실패:', e);
       }
 
-      // 4단계: 학습지 생성
-      updateStep(3, 75, '학습지 생성 중...');
+      // 5단계: 학습지 생성
+      updateStep(4, 70, '학습지 생성 중...');
       let worksheetContent = null;
       try {
         const worksheetResponse = await fetch('/api/lesson/generate-materials', {
@@ -298,8 +323,8 @@ export function LessonForm() {
         console.error('학습지 생성 실패:', e);
       }
 
-      // 5단계: Firestore에 저장
-      updateStep(4, 90, '저장 중...');
+      // 6단계: Firestore에 저장
+      updateStep(5, 85, '저장 중...');
       let lessonId: string;
 
       try {
@@ -314,7 +339,10 @@ export function LessonForm() {
 
         // 자료들 저장 (병렬로)
         const savePromises = [
-          createMaterial(lessonId, 'lesson_plan', '교수학습지도안', lessonDesign),
+          createMaterial(lessonId, 'lesson_plan', '교수학습지도안', {
+            lessonDesign,
+            lessonPlanDocx: lessonPlanDocxContent,
+          }),
         ];
         if (scriptContent) {
           savePromises.push(createMaterial(lessonId, 'teaching_script', '수업 대본', scriptContent));
@@ -338,7 +366,7 @@ export function LessonForm() {
 
       toast({
         title: '수업 생성 완료!',
-        description: '단원 설계, 수업 대본, PPT, 학습지가 모두 생성되었습니다.',
+        description: '단원 설계, 지도안, 수업 대본, PPT, 학습지가 모두 생성되었습니다.',
         variant: 'success',
       });
 

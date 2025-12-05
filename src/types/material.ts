@@ -209,6 +209,39 @@ export interface TeachingScriptContent {
   };
 }
 
+// 교수학습지도안 DOCX 타입 (도입-전개-정리 형식)
+export interface LessonPlanDocxActivity {
+  activityName?: string;
+  teacherActivity: string;
+  studentActivity: string;
+  materials: string;
+}
+
+export interface LessonPlanDocxPhase {
+  duration: number;
+  activities: LessonPlanDocxActivity[];
+}
+
+export interface LessonPlanDocxPeriod {
+  period: number;
+  periodRange: string;
+  stageName: string;
+  stageNameEn: string;
+  topic: string;
+  learningObjectives: string[];
+  introduction: LessonPlanDocxPhase;
+  development: LessonPlanDocxPhase;
+  conclusion: LessonPlanDocxPhase;
+  assessment: {
+    type: string;
+    criteria: string[];
+  };
+}
+
+export interface LessonPlanDocxContent {
+  lessonPlans: LessonPlanDocxPeriod[];
+}
+
 // 자료 저장 타입
 export interface Material {
   id: string;

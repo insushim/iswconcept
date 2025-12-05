@@ -16,9 +16,10 @@ import {
   Footer,
   PageNumber,
   VerticalAlign,
+  TableLayoutType,
 } from 'docx';
 import type { Lesson } from '@/types/lesson';
-import type { TeachingScriptContent, WorksheetContent } from '@/types/material';
+import type { TeachingScriptContent, WorksheetContent, LessonPlanDocxContent } from '@/types/material';
 import { CBI_STAGES, type CBIStageId } from '@/lib/constants/cbi-stages';
 
 // 색상 정의
@@ -30,8 +31,230 @@ const COLORS = {
   background: 'F3F4F6',
 };
 
-// 교수학습 지도안 생성
-export async function generateLessonPlanDocx(lesson: Lesson): Promise<Buffer> {
+// 교수학습 지도안 생성 (도입-전개-정리 테이블 형식)
+export async function generateLessonPlanDocx(
+  lesson: Lesson,
+  lessonPlanContent?: LessonPlanDocxContent
+): Promise<Buffer> {
+  const allChildren: (Paragraph | Table)[] = [];
+
+  // lessonPlanContent가 있으면 차시별 도입-전개-정리 테이블 형식으로 생성
+  if (lessonPlanContent?.lessonPlans && lessonPlanContent.lessonPlans.length > 0) {
+    for (let i = 0; i < lessonPlanContent.lessonPlans.length; i++) {
+      const plan = lessonPlanContent.lessonPlans[i];
+
+      // 차시 제목
+      allChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `${plan.periodRange} - ${plan.stageName}(${plan.stageNameEn})`,
+              bold: true,
+              size: 28,
+              color: COLORS.primary,
+            }),
+          ],
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: i === 0 ? 0 : 400, after: 200 },
+        })
+      );
+
+      // 기본 정보 테이블
+      allChildren.push(createPeriodInfoTable(lesson, plan));
+      allChildren.push(new Paragraph({ spacing: { before: 200 } }));
+
+      // 학습목표
+      allChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: '학습목표', bold: true, size: 22 }),
+          ],
+          spacing: { before: 100, after: 100 },
+        })
+      );
+      for (const obj of plan.learningObjectives) {
+        allChildren.push(
+          new Paragraph({
+            children: [new TextRun({ text: `• ${obj}`, size: 20 })],
+            indent: { left: 360 },
+          })
+        );
+      }
+
+      allChildren.push(new Paragraph({ spacing: { before: 200 } }));
+
+      // 도입-전개-정리 테이블
+      allChildren.push(createLessonPhaseTable(plan));
+
+      // 평가 정보
+      if (plan.assessment) {
+        allChildren.push(new Paragraph({ spacing: { before: 200 } }));
+        allChildren.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: `평가: ${plan.assessment.type}`, bold: true, size: 20 }),
+            ],
+          })
+        );
+        for (const criterion of plan.assessment.criteria) {
+          allChildren.push(
+            new Paragraph({
+              children: [new TextRun({ text: `• ${criterion}`, size: 18 })],
+              indent: { left: 360 },
+            })
+          );
+        }
+      }
+
+      // 차시 간 페이지 나누기 (마지막 차시 제외)
+      if (i < lessonPlanContent.lessonPlans.length - 1) {
+        allChildren.push(
+          new Paragraph({
+            children: [new PageBreak()],
+          })
+        );
+      }
+    }
+  } else {
+    // 기존 형식 (lessonPlanContent가 없는 경우)
+    allChildren.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: lesson.title,
+            bold: true,
+            size: 36,
+            color: COLORS.primary,
+          }),
+        ],
+        heading: HeadingLevel.TITLE,
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 400 },
+      })
+    );
+
+    allChildren.push(createInfoTable(lesson));
+    allChildren.push(new Paragraph({ spacing: { before: 400 } }));
+
+    // 학습 목표
+    allChildren.push(createSectionTitle('학습 목표'));
+    for (let i = 0; i < lesson.learning_objectives.length; i++) {
+      allChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: `${i + 1}. ${lesson.learning_objectives[i]}`, size: 22 }),
+          ],
+          spacing: { before: 100, after: 100 },
+          indent: { left: 360 },
+        })
+      );
+    }
+
+    allChildren.push(new Paragraph({ spacing: { before: 300 } }));
+
+    // 핵심 개념
+    allChildren.push(createSectionTitle('핵심 개념'));
+    allChildren.push(
+      new Paragraph({
+        children: lesson.core_concepts.map(
+          (concept) =>
+            new TextRun({
+              text: ` ${concept} `,
+              bold: true,
+              shading: {
+                type: ShadingType.CLEAR,
+                fill: 'EEF2FF',
+              },
+            })
+        ),
+        spacing: { before: 100, after: 200 },
+        indent: { left: 360 },
+      })
+    );
+
+    allChildren.push(new Paragraph({ spacing: { before: 300 } }));
+
+    // 핵심 아이디어
+    allChildren.push(createSectionTitle('핵심 아이디어 (일반화)'));
+    for (const idea of lesson.big_ideas) {
+      allChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `"${idea}"`,
+              italics: true,
+              size: 22,
+            }),
+          ],
+          spacing: { before: 100, after: 100 },
+          indent: { left: 360 },
+          shading: {
+            type: ShadingType.CLEAR,
+            fill: 'FAF5FF',
+          },
+        })
+      );
+    }
+
+    allChildren.push(new Paragraph({ spacing: { before: 300 } }));
+
+    // 안내 질문
+    allChildren.push(createSectionTitle('안내 질문'));
+    allChildren.push(
+      new Paragraph({
+        children: [new TextRun({ text: '사실적 질문', bold: true, size: 20 })],
+        indent: { left: 360 },
+      })
+    );
+    for (const q of lesson.factual_questions) {
+      allChildren.push(
+        new Paragraph({
+          children: [new TextRun({ text: `• ${q}`, size: 20 })],
+          indent: { left: 720 },
+        })
+      );
+    }
+    allChildren.push(
+      new Paragraph({
+        children: [new TextRun({ text: '개념적 질문', bold: true, size: 20 })],
+        spacing: { before: 200 },
+        indent: { left: 360 },
+      })
+    );
+    for (const q of lesson.conceptual_questions) {
+      allChildren.push(
+        new Paragraph({
+          children: [new TextRun({ text: `• ${q}`, size: 20 })],
+          indent: { left: 720 },
+        })
+      );
+    }
+    allChildren.push(
+      new Paragraph({
+        children: [new TextRun({ text: '논쟁적 질문', bold: true, size: 20 })],
+        spacing: { before: 200 },
+        indent: { left: 360 },
+      })
+    );
+    for (const q of lesson.debatable_questions) {
+      allChildren.push(
+        new Paragraph({
+          children: [new TextRun({ text: `• ${q}`, size: 20 })],
+          indent: { left: 720 },
+        })
+      );
+    }
+
+    allChildren.push(new Paragraph({ children: [new PageBreak()] }));
+    allChildren.push(createSectionTitle('7단계 수업 전개'));
+    allChildren.push(...createStagesSections(lesson));
+    allChildren.push(new Paragraph({ children: [new PageBreak()] }));
+    allChildren.push(createSectionTitle('평가 계획'));
+    if (lesson.assessment_plan) {
+      allChildren.push(...createAssessmentSection(lesson.assessment_plan));
+    }
+  }
+
   const doc = new Document({
     creator: 'CBI Lesson Designer',
     title: `${lesson.title} - 교수학습지도안`,
@@ -82,156 +305,276 @@ export async function generateLessonPlanDocx(lesson: Lesson): Promise<Buffer> {
             ],
           }),
         },
-        children: [
-          // 제목
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: lesson.title,
-                bold: true,
-                size: 36,
-                color: COLORS.primary,
-              }),
-            ],
-            heading: HeadingLevel.TITLE,
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 400 },
-          }),
-
-          // 기본 정보 테이블
-          createInfoTable(lesson),
-
-          new Paragraph({ spacing: { before: 400 } }),
-
-          // 학습 목표
-          createSectionTitle('학습 목표'),
-          ...lesson.learning_objectives.map(
-            (obj, i) =>
-              new Paragraph({
-                children: [
-                  new TextRun({ text: `${i + 1}. ${obj}`, size: 22 }),
-                ],
-                spacing: { before: 100, after: 100 },
-                indent: { left: 360 },
-              })
-          ),
-
-          new Paragraph({ spacing: { before: 300 } }),
-
-          // 핵심 개념
-          createSectionTitle('핵심 개념'),
-          new Paragraph({
-            children: lesson.core_concepts.map(
-              (concept) =>
-                new TextRun({
-                  text: ` ${concept} `,
-                  bold: true,
-                  shading: {
-                    type: ShadingType.CLEAR,
-                    fill: 'EEF2FF',
-                  },
-                })
-            ),
-            spacing: { before: 100, after: 200 },
-            indent: { left: 360 },
-          }),
-
-          new Paragraph({ spacing: { before: 300 } }),
-
-          // 핵심 아이디어 (일반화)
-          createSectionTitle('핵심 아이디어 (일반화)'),
-          ...lesson.big_ideas.map(
-            (idea) =>
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `"${idea}"`,
-                    italics: true,
-                    size: 22,
-                  }),
-                ],
-                spacing: { before: 100, after: 100 },
-                indent: { left: 360 },
-                shading: {
-                  type: ShadingType.CLEAR,
-                  fill: 'FAF5FF',
-                },
-              })
-          ),
-
-          new Paragraph({ spacing: { before: 300 } }),
-
-          // 안내 질문
-          createSectionTitle('안내 질문'),
-          new Paragraph({
-            children: [
-              new TextRun({ text: '사실적 질문', bold: true, size: 20 }),
-            ],
-            indent: { left: 360 },
-          }),
-          ...lesson.factual_questions.map(
-            (q) =>
-              new Paragraph({
-                children: [new TextRun({ text: `• ${q}`, size: 20 })],
-                indent: { left: 720 },
-              })
-          ),
-          new Paragraph({
-            children: [
-              new TextRun({ text: '개념적 질문', bold: true, size: 20 }),
-            ],
-            spacing: { before: 200 },
-            indent: { left: 360 },
-          }),
-          ...lesson.conceptual_questions.map(
-            (q) =>
-              new Paragraph({
-                children: [new TextRun({ text: `• ${q}`, size: 20 })],
-                indent: { left: 720 },
-              })
-          ),
-          new Paragraph({
-            children: [
-              new TextRun({ text: '논쟁적 질문', bold: true, size: 20 }),
-            ],
-            spacing: { before: 200 },
-            indent: { left: 360 },
-          }),
-          ...lesson.debatable_questions.map(
-            (q) =>
-              new Paragraph({
-                children: [new TextRun({ text: `• ${q}`, size: 20 })],
-                indent: { left: 720 },
-              })
-          ),
-
-          // 페이지 나누기
-          new Paragraph({
-            children: [new PageBreak()],
-          }),
-
-          // 7단계 수업 전개
-          createSectionTitle('7단계 수업 전개'),
-
-          // 각 단계별 내용
-          ...createStagesSections(lesson),
-
-          // 페이지 나누기
-          new Paragraph({
-            children: [new PageBreak()],
-          }),
-
-          // 평가 계획
-          createSectionTitle('평가 계획'),
-          ...(lesson.assessment_plan
-            ? createAssessmentSection(lesson.assessment_plan)
-            : []),
-        ],
+        children: allChildren,
       },
     ],
   });
 
   return await Packer.toBuffer(doc);
+}
+
+// 차시별 기본정보 테이블
+function createPeriodInfoTable(lesson: Lesson, plan: LessonPlanDocxContent['lessonPlans'][0]): Table {
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    layout: TableLayoutType.FIXED,
+    rows: [
+      new TableRow({
+        children: [
+          createTableCell('학년/과목', true, 1500),
+          createTableCell(`${lesson.grade}학년 ${lesson.subject_id}`, false, 2500),
+          createTableCell('단원', true, 1000),
+          createTableCell(lesson.unit_id || lesson.title, false, 4000),
+        ],
+      }),
+      new TableRow({
+        children: [
+          createTableCell('차시', true, 1500),
+          createTableCell(plan.periodRange, false, 2500),
+          createTableCell('학습주제', true, 1000),
+          createTableCell(plan.topic, false, 4000),
+        ],
+      }),
+    ],
+  });
+}
+
+// 도입-전개-정리 테이블 생성
+function createLessonPhaseTable(plan: LessonPlanDocxContent['lessonPlans'][0]): Table {
+  const rows: TableRow[] = [];
+
+  // 헤더 행
+  rows.push(
+    new TableRow({
+      children: [
+        createHeaderCell('단계', 1000),
+        createHeaderCell('시간', 800),
+        createHeaderCell('교수·학습 활동', 3600),
+        createHeaderCell('자료 및 유의점', 2600),
+      ],
+    })
+  );
+
+  // 도입
+  const introActivities = plan.introduction?.activities || [];
+  if (introActivities.length > 0) {
+    for (let i = 0; i < introActivities.length; i++) {
+      const activity = introActivities[i];
+      rows.push(
+        new TableRow({
+          children: [
+            i === 0 ? createMergeCell('도입', introActivities.length, 1000, 'E8F5E9') : null,
+            i === 0 ? createMergeCell(`${plan.introduction?.duration || 5}분`, introActivities.length, 800) : null,
+            createActivityCell(activity),
+            createMaterialCell(activity.materials),
+          ].filter(Boolean) as TableCell[],
+        })
+      );
+    }
+  } else {
+    rows.push(
+      new TableRow({
+        children: [
+          createPhaseCell('도입', 'E8F5E9'),
+          createTableCell(`${plan.introduction?.duration || 5}분`, false, 800),
+          createTableCell('', false, 3600),
+          createTableCell('', false, 2600),
+        ],
+      })
+    );
+  }
+
+  // 전개
+  const devActivities = plan.development?.activities || [];
+  if (devActivities.length > 0) {
+    for (let i = 0; i < devActivities.length; i++) {
+      const activity = devActivities[i];
+      rows.push(
+        new TableRow({
+          children: [
+            i === 0 ? createMergeCell('전개', devActivities.length, 1000, 'E3F2FD') : null,
+            i === 0 ? createMergeCell(`${plan.development?.duration || 30}분`, devActivities.length, 800) : null,
+            createActivityCell(activity),
+            createMaterialCell(activity.materials),
+          ].filter(Boolean) as TableCell[],
+        })
+      );
+    }
+  } else {
+    rows.push(
+      new TableRow({
+        children: [
+          createPhaseCell('전개', 'E3F2FD'),
+          createTableCell(`${plan.development?.duration || 30}분`, false, 800),
+          createTableCell('', false, 3600),
+          createTableCell('', false, 2600),
+        ],
+      })
+    );
+  }
+
+  // 정리
+  const concActivities = plan.conclusion?.activities || [];
+  if (concActivities.length > 0) {
+    for (let i = 0; i < concActivities.length; i++) {
+      const activity = concActivities[i];
+      rows.push(
+        new TableRow({
+          children: [
+            i === 0 ? createMergeCell('정리', concActivities.length, 1000, 'FFF3E0') : null,
+            i === 0 ? createMergeCell(`${plan.conclusion?.duration || 5}분`, concActivities.length, 800) : null,
+            createActivityCell(activity),
+            createMaterialCell(activity.materials),
+          ].filter(Boolean) as TableCell[],
+        })
+      );
+    }
+  } else {
+    rows.push(
+      new TableRow({
+        children: [
+          createPhaseCell('정리', 'FFF3E0'),
+          createTableCell(`${plan.conclusion?.duration || 5}분`, false, 800),
+          createTableCell('', false, 3600),
+          createTableCell('', false, 2600),
+        ],
+      })
+    );
+  }
+
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    layout: TableLayoutType.FIXED,
+    rows,
+  });
+}
+
+// 헤더 셀 생성
+function createHeaderCell(text: string, width: number): TableCell {
+  return new TableCell({
+    children: [
+      new Paragraph({
+        children: [new TextRun({ text, bold: true, size: 20 })],
+        alignment: AlignmentType.CENTER,
+      }),
+    ],
+    shading: { type: ShadingType.CLEAR, fill: 'F3F4F6' },
+    width: { size: width, type: WidthType.DXA },
+    verticalAlign: VerticalAlign.CENTER,
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      left: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      right: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+    },
+  });
+}
+
+// 단계 셀 생성 (색상 포함)
+function createPhaseCell(text: string, fillColor: string): TableCell {
+  return new TableCell({
+    children: [
+      new Paragraph({
+        children: [new TextRun({ text, bold: true, size: 20 })],
+        alignment: AlignmentType.CENTER,
+      }),
+    ],
+    shading: { type: ShadingType.CLEAR, fill: fillColor },
+    width: { size: 1000, type: WidthType.DXA },
+    verticalAlign: VerticalAlign.CENTER,
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      left: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      right: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+    },
+  });
+}
+
+// 병합 셀 생성
+function createMergeCell(text: string, rowSpan: number, width: number, fillColor?: string): TableCell {
+  return new TableCell({
+    children: [
+      new Paragraph({
+        children: [new TextRun({ text, bold: true, size: 20 })],
+        alignment: AlignmentType.CENTER,
+      }),
+    ],
+    rowSpan,
+    shading: fillColor ? { type: ShadingType.CLEAR, fill: fillColor } : undefined,
+    width: { size: width, type: WidthType.DXA },
+    verticalAlign: VerticalAlign.CENTER,
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      left: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      right: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+    },
+  });
+}
+
+// 활동 셀 생성
+function createActivityCell(activity: LessonPlanDocxContent['lessonPlans'][0]['introduction']['activities'][0]): TableCell {
+  const paragraphs: Paragraph[] = [];
+
+  if (activity.activityName) {
+    paragraphs.push(
+      new Paragraph({
+        children: [new TextRun({ text: `◆ ${activity.activityName}`, bold: true, size: 18 })],
+        spacing: { after: 50 },
+      })
+    );
+  }
+
+  paragraphs.push(
+    new Paragraph({
+      children: [
+        new TextRun({ text: '교사: ', bold: true, size: 18, color: COLORS.primary }),
+        new TextRun({ text: activity.teacherActivity || '', size: 18 }),
+      ],
+      spacing: { after: 50 },
+    })
+  );
+
+  paragraphs.push(
+    new Paragraph({
+      children: [
+        new TextRun({ text: '학생: ', bold: true, size: 18, color: COLORS.secondary }),
+        new TextRun({ text: activity.studentActivity || '', size: 18 }),
+      ],
+    })
+  );
+
+  return new TableCell({
+    children: paragraphs,
+    width: { size: 3600, type: WidthType.DXA },
+    verticalAlign: VerticalAlign.TOP,
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      left: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      right: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+    },
+  });
+}
+
+// 자료 셀 생성
+function createMaterialCell(materials: string): TableCell {
+  return new TableCell({
+    children: [
+      new Paragraph({
+        children: [new TextRun({ text: materials || '', size: 18 })],
+      }),
+    ],
+    width: { size: 2600, type: WidthType.DXA },
+    verticalAlign: VerticalAlign.TOP,
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      left: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+      right: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' },
+    },
+  });
 }
 
 // 수업 대본 생성 - lessonScript 형식 지원

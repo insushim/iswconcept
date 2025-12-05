@@ -629,7 +629,14 @@ function DownloadMenu({
     try {
       // 해당 타입의 자료 찾기
       const material = materials.find((m) => m.type === type);
-      const materialContent = material?.content || null;
+      const rawContent = material?.content;
+
+      // lesson_plan의 경우 lessonPlanDocx 데이터 추출
+      let contentToSend: unknown = rawContent || null;
+      if (type === 'lesson_plan' && rawContent) {
+        const content = rawContent as { lessonPlanDocx?: unknown };
+        contentToSend = content.lessonPlanDocx || null;
+      }
 
       const response = await fetch(`/api/download/${type}`, {
         method: 'POST',
@@ -638,7 +645,7 @@ function DownloadMenu({
         },
         body: JSON.stringify({
           lesson,
-          materialContent,
+          materialContent: contentToSend,
         }),
       });
 
@@ -849,7 +856,14 @@ function MaterialsSection({
     setDownloading(type);
     try {
       const material = materials.find((m) => m.type === type);
-      const materialContent = material?.content || null;
+      const rawContent = material?.content;
+
+      // lesson_plan의 경우 lessonPlanDocx 데이터 추출
+      let contentToSend: unknown = rawContent || null;
+      if (type === 'lesson_plan' && rawContent) {
+        const content = rawContent as { lessonPlanDocx?: unknown };
+        contentToSend = content.lessonPlanDocx || null;
+      }
 
       const response = await fetch(`/api/download/${type}`, {
         method: 'POST',
@@ -858,7 +872,7 @@ function MaterialsSection({
         },
         body: JSON.stringify({
           lesson,
-          materialContent,
+          materialContent: contentToSend,
         }),
       });
 

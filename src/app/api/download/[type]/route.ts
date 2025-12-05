@@ -6,7 +6,7 @@ import {
   generateWorksheetDocx,
 } from '@/lib/generators';
 import type { Lesson } from '@/types/lesson';
-import type { TeachingScriptContent, WorksheetContent, PPTXContent } from '@/types/material';
+import type { TeachingScriptContent, WorksheetContent, PPTXContent, LessonPlanDocxContent } from '@/types/material';
 
 // POST: 클라이언트에서 데이터를 받아서 파일 생성
 export async function POST(
@@ -29,7 +29,10 @@ export async function POST(
 
     switch (type) {
       case 'lesson_plan':
-        buffer = await generateLessonPlanDocx(lesson as Lesson);
+        buffer = await generateLessonPlanDocx(
+          lesson as Lesson,
+          materialContent as LessonPlanDocxContent | undefined
+        );
         filename = `${lessonTitle}_교수학습지도안.docx`;
         contentType =
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document';

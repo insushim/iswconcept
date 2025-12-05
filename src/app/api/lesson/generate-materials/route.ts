@@ -4,9 +4,10 @@ import {
   generateTeachingScriptPrompt,
   generatePPTXContentPrompt,
   generateWorksheetPrompt,
+  generateLessonPlanDocxPrompt,
 } from '@/lib/gemini/prompts';
 import type { GeneratedLesson } from '@/types/lesson';
-import type { PPTXContent, WorksheetContent, TeachingScriptContent } from '@/types/material';
+import type { PPTXContent, WorksheetContent, TeachingScriptContent, LessonPlanDocxContent } from '@/types/material';
 
 export const maxDuration = 60;
 
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     const grade = lessonData.grade as number;
     const subject = lessonData.subject_id as string;
 
-    let content: TeachingScriptContent | PPTXContent | WorksheetContent;
+    let content: TeachingScriptContent | PPTXContent | WorksheetContent | LessonPlanDocxContent;
 
     switch (type) {
       case 'teaching_script':
@@ -76,6 +77,11 @@ export async function POST(req: NextRequest) {
       case 'worksheet':
         const worksheetPrompt = generateWorksheetPrompt(lessonDesign, grade, subject);
         content = await gemini.generateJSON<WorksheetContent>(worksheetPrompt);
+        break;
+
+      case 'lesson_plan_docx':
+        const lessonPlanPrompt = generateLessonPlanDocxPrompt(lessonDesign, grade);
+        content = await gemini.generateJSON<LessonPlanDocxContent>(lessonPlanPrompt);
         break;
 
       default:
