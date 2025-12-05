@@ -63,25 +63,35 @@ export async function POST(req: NextRequest) {
 
     let content: TeachingScriptContent | PPTXContent | WorksheetContent | LessonPlanDocxContent;
 
+    console.log(`[Generate Materials] 시작 - type: ${type}, lessonId: ${lessonId}`);
+
     switch (type) {
       case 'teaching_script':
+        console.log('[Generate Materials] 수업 대본 생성 중...');
         const scriptPrompt = generateTeachingScriptPrompt(lessonDesign, grade);
         content = await gemini.generateJSON<TeachingScriptContent>(scriptPrompt);
+        console.log('[Generate Materials] 수업 대본 생성 완료');
         break;
 
       case 'pptx':
+        console.log('[Generate Materials] PPT 생성 중...');
         const pptxPrompt = generatePPTXContentPrompt(lessonDesign, grade);
         content = await gemini.generateJSON<PPTXContent>(pptxPrompt);
+        console.log('[Generate Materials] PPT 생성 완료');
         break;
 
       case 'worksheet':
+        console.log('[Generate Materials] 학습지 생성 중...');
         const worksheetPrompt = generateWorksheetPrompt(lessonDesign, grade, subject);
         content = await gemini.generateJSON<WorksheetContent>(worksheetPrompt);
+        console.log('[Generate Materials] 학습지 생성 완료');
         break;
 
       case 'lesson_plan_docx':
+        console.log('[Generate Materials] 교수학습 지도안 생성 중...');
         const lessonPlanPrompt = generateLessonPlanDocxPrompt(lessonDesign, grade);
         content = await gemini.generateJSON<LessonPlanDocxContent>(lessonPlanPrompt);
+        console.log('[Generate Materials] 교수학습 지도안 생성 완료');
         break;
 
       default:
@@ -96,9 +106,11 @@ export async function POST(req: NextRequest) {
       message: '자료가 생성되었습니다.',
     });
   } catch (error) {
-    console.error('Material generation error:', error);
+    console.error('[Generate Materials] 오류:', error);
+    const errorMessage = error instanceof Error ? error.message : '자료 생성 중 오류가 발생했습니다.';
+    console.error('[Generate Materials] 오류 메시지:', errorMessage);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '자료 생성 중 오류가 발생했습니다.' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

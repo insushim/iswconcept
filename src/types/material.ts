@@ -136,12 +136,13 @@ export interface WorksheetQuestion {
 }
 
 export interface WorksheetSection {
-  id: string;
-  sectionNumber: number;
-  title: string;
-  stage: string;
-  instructions: string;
-  questions: WorksheetQuestion[];
+  id?: string;
+  sectionNumber?: number;
+  title?: string;
+  name?: string;
+  stage?: string;
+  instructions?: string;
+  questions: WorksheetQuestion[] | SimpleWorksheetQuestion[];
   // CBI 학습지 전용 필드들
   periods?: string;
   phase?: string;
@@ -168,11 +169,34 @@ export interface WorksheetFooter {
   portfolioNote?: string;
 }
 
+// 간소화된 학습지 형식 (새 프롬프트용)
+export interface SimpleWorksheetQuestion {
+  num?: number;
+  number?: number;
+  text?: string;
+  question?: string;
+  lines?: number;
+}
+
+export interface SimpleWorksheetStage {
+  stage: string;
+  name: string;
+  title?: string;
+  questions: SimpleWorksheetQuestion[];
+}
+
 export interface Worksheet {
   lessonId?: string;
-  header: WorksheetHeader;
-  sections: WorksheetSection[];
-  footer: WorksheetFooter;
+  // 간소화된 형식
+  title?: string;
+  grade?: string;
+  subject?: string;
+  conceptLens?: string;
+  stages?: SimpleWorksheetStage[];
+  // 기존 복잡한 형식 (호환성 유지)
+  header?: WorksheetHeader;
+  sections?: WorksheetSection[];
+  footer?: WorksheetFooter;
 }
 
 export interface TeacherGuide {
@@ -267,10 +291,15 @@ export interface LessonPlanDocxPeriod {
   stageNameEn: string;
   topic: string;
   learningObjectives: string[];
-  introduction: LessonPlanDocxPhase;
-  development: LessonPlanDocxPhase;
-  conclusion: LessonPlanDocxPhase;
-  assessment: {
+  // 간소화된 형식 (텍스트)
+  intro?: string;
+  main?: string;
+  closing?: string;
+  // 기존 복잡한 형식 (호환성 유지)
+  introduction?: LessonPlanDocxPhase;
+  development?: LessonPlanDocxPhase;
+  conclusion?: LessonPlanDocxPhase;
+  assessment?: {
     type: string;
     criteria: string[];
   };

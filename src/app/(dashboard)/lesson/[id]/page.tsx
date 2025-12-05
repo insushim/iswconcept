@@ -25,10 +25,11 @@ import {
   Star,
   Users,
   CheckSquare,
+  Trash2,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { CBI_STAGES, type CBIStageId } from '@/lib/constants/cbi-stages';
-import { getLesson, getMaterialsByLesson, createMaterial } from '@/lib/firebase/firestore';
+import { getLesson, getMaterialsByLesson, createMaterial, deleteMaterial as deleteMaterialFirestore } from '@/lib/firebase/firestore';
 import { auth } from '@/lib/firebase/config';
 import type { Lesson } from '@/types/lesson';
 import type { Material } from '@/types/material';
@@ -472,6 +473,7 @@ export default function LessonDetailPage() {
             lesson={lesson}
             materials={materials}
             onMaterialCreated={(newMaterial) => setMaterials([...materials, newMaterial])}
+            onMaterialDeleted={(materialId) => setMaterials(materials.filter(m => m.id !== materialId))}
           />
         </TabsContent>
 
@@ -750,13 +752,65 @@ function MaterialsSection({
   lesson,
   materials,
   onMaterialCreated,
+  onMaterialDeleted,
 }: {
   lesson: Lesson;
   materials: Material[];
   onMaterialCreated: (material: Material) => void;
+  onMaterialDeleted?: (materialId: string) => void;
 }) {
   const [generating, setGenerating] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  // 자료 삭제 함수
+  const deleteMaterial = async (materialId: string, materialType: string) => {
+    const user = auth.currentUser;
+    if (!user) {
+      toast({
+        title: '로그인 필요',
+        description: '자료를 삭제하려면 로그인이 필요합니다.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // 삭제 확인
+    const labels: Record<string, string> = {
+      lesson_plan: '교수학습 지도안',
+      teaching_script: '수업 대본',
+      pptx: 'PPT 자료',
+      worksheet: '학습지',
+    };
+    const confirmed = window.confirm(`${labels[materialType] || materialType}을(를) 삭제하시겠습니까?\n삭제 후 다시 생성할 수 있습니다.`);
+    if (!confirmed) return;
+
+    setDeleting(materialId);
+
+    try {
+      // Firebase SDK 직접 사용 (API 대신)
+      await deleteMaterialFirestore(materialId);
+
+      // 부모 컴포넌트에 알림
+      if (onMaterialDeleted) {
+        onMaterialDeleted(materialId);
+      }
+
+      toast({
+        title: '삭제 완료',
+        description: '자료가 삭제되었습니다. 다시 생성할 수 있습니다.',
+      });
+    } catch (error) {
+      console.error('삭제 오류:', error);
+      toast({
+        title: '삭제 실패',
+        description: error instanceof Error ? error.message : '삭제 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   const materialTypes = [
     { type: 'lesson_plan', label: '교수학습 지도안', icon: FileText },
@@ -1006,6 +1060,19 @@ function MaterialsSection({
                         <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 animate-spin" />
                       ) : (
                         <Download className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => deleteMaterial(material.id, material.type)}
+                      disabled={deleting !== null}
+                      className="h-8 w-8 p-0 md:h-9 md:w-9 text-red-500 hover:text-red-600 hover:bg-red-50"
+                    >
+                      {deleting === material.id ? (
+                        <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
                       )}
                     </Button>
                   </div>

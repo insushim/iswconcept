@@ -6,6 +6,30 @@ import {
   deleteServerLesson,
 } from '@/lib/firebase/server';
 
+const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+const FIRESTORE_BASE_URL = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
+
+// 슈퍼 관리자 확인 함수 (서버용 REST API 사용)
+async function isSuperAdmin(userId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${FIRESTORE_BASE_URL}/users/${userId}?key=${FIREBASE_API_KEY}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const doc = await response.json();
+    const role = doc.fields?.role?.stringValue;
+    return role === 'admin' || role === 'super_admin';
+  } catch {
+    return false;
+  }
+}
+
 // GET: 수업 조회
 export async function GET(
   req: NextRequest,
@@ -79,10 +103,26 @@ export async function DELETE(
   try {
     const { id } = await params;
 
+    // 요청 본문에서 userId 확인
+    const body = await req.json().catch(() => ({}));
+    const { userId } = body as { userId?: string };
+
+    if (!userId) {
+      return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
+    }
+
     // 수업 존재 확인
     const existing = await getServerLesson(id);
     if (!existing) {
       return NextResponse.json({ error: '수업을 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // 권한 확인: 본인 수업이거나 슈퍼 관리자
+    const isOwner = existing.user_id === userId;
+    const isAdmin = await isSuperAdmin(userId);
+
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json({ error: '삭제 권한이 없습니다.' }, { status: 403 });
     }
 
     // 수업 및 관련 자료 삭제

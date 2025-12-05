@@ -27,10 +27,13 @@ import {
   Heart,
   ChevronRight,
   GraduationCap,
+  Trash2,
+  Shield,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { getPublicLessons, copyLesson } from '@/lib/firebase/firestore';
-import { auth } from '@/lib/firebase/config';
+import { auth, db } from '@/lib/firebase/config';
+import { doc, getDoc } from 'firebase/firestore';
 import type { Lesson } from '@/types/lesson';
 
 export default function LibraryPage() {
@@ -39,6 +42,8 @@ export default function LibraryPage() {
   const [filteredLessons, setFilteredLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [gradeFilter, setGradeFilter] = useState<string>('all');
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
@@ -49,6 +54,16 @@ export default function LibraryPage() {
         const publicLessons = await getPublicLessons(30);
         setLessons(publicLessons);
         setFilteredLessons(publicLessons);
+
+        // 슈퍼 관리자 권한 확인
+        const user = auth.currentUser;
+        if (user) {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setIsAdmin(userData.role === 'admin' || userData.role === 'super_admin');
+          }
+        }
       } catch (error) {
         console.error('Error fetching public lessons:', error);
         toast({
@@ -119,6 +134,56 @@ export default function LibraryPage() {
     }
   };
 
+  const handleDelete = async (lessonId: string, lessonTitle: string) => {
+    const user = auth.currentUser;
+    if (!user || !isAdmin) {
+      toast({
+        title: '권한 없음',
+        description: '관리자만 삭제할 수 있습니다.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(`"${lessonTitle}" 수업을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`);
+    if (!confirmed) return;
+
+    setDeleting(lessonId);
+    try {
+      const response = await fetch(`/api/lesson/${lessonId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.uid }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '삭제에 실패했습니다.');
+      }
+
+      // 목록에서 제거
+      setLessons(lessons.filter(l => l.id !== lessonId));
+      setFilteredLessons(filteredLessons.filter(l => l.id !== lessonId));
+
+      toast({
+        title: '삭제 완료',
+        description: '수업이 삭제되었습니다.',
+        variant: 'success',
+      });
+    } catch (error) {
+      toast({
+        title: '삭제 실패',
+        description: error instanceof Error ? error.message : '삭제 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ko-KR', {
@@ -159,6 +224,12 @@ export default function LibraryPage() {
             <Heart className="h-4 w-4" />
             <span className="text-white/70">무료로 복사 가능</span>
           </div>
+          {isAdmin && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-yellow-400/30 backdrop-blur-sm text-white">
+              <Shield className="h-4 w-4" />
+              <span className="text-white/90 font-medium">관리자 모드</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -343,6 +414,21 @@ export default function LibraryPage() {
                         </>
                       )}
                     </Button>
+                    {isAdmin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => handleDelete(lesson.id, lesson.title)}
+                        disabled={deleting === lesson.id}
+                      >
+                        {deleting === lesson.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

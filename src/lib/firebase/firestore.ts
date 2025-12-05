@@ -211,6 +211,19 @@ export async function deleteLesson(lessonId: string) {
   await deleteDoc(doc(db, 'lessons', lessonId));
 }
 
+// 자료 삭제 (클라이언트 SDK 사용)
+export async function deleteMaterial(materialId: string) {
+  console.log('[deleteMaterial] 시작 - materialId:', materialId);
+  try {
+    await deleteDoc(doc(db, 'materials', materialId));
+    console.log('[deleteMaterial] 성공!');
+    return true;
+  } catch (error) {
+    console.error('[deleteMaterial] 오류:', error);
+    throw error;
+  }
+}
+
 // ========== Materials ==========
 
 // 자료 생성 (간소화 - 버전 관리 없이 바로 저장)

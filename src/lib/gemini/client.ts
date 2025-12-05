@@ -96,18 +96,68 @@ export class GeminiClient {
     // JSON 추출 (마크다운 코드 블록 제거)
     let jsonStr = response;
 
-    // ```json ... ``` 패턴 제거
+    // ```json ... ``` 패턴 제거 (여러 개가 있을 수 있음)
     const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       jsonStr = jsonMatch[1].trim();
     }
 
+    // JSON이 아닌 텍스트가 앞뒤에 있을 수 있으므로 { 또는 [로 시작하는 부분 찾기
+    const jsonStartBrace = jsonStr.indexOf('{');
+    const jsonStartBracket = jsonStr.indexOf('[');
+    let jsonStart = -1;
+
+    if (jsonStartBrace !== -1 && jsonStartBracket !== -1) {
+      jsonStart = Math.min(jsonStartBrace, jsonStartBracket);
+    } else if (jsonStartBrace !== -1) {
+      jsonStart = jsonStartBrace;
+    } else if (jsonStartBracket !== -1) {
+      jsonStart = jsonStartBracket;
+    }
+
+    if (jsonStart > 0) {
+      jsonStr = jsonStr.substring(jsonStart);
+    }
+
+    // 마지막 } 또는 ] 이후의 텍스트 제거
+    const lastBrace = jsonStr.lastIndexOf('}');
+    const lastBracket = jsonStr.lastIndexOf(']');
+    const jsonEnd = Math.max(lastBrace, lastBracket);
+
+    if (jsonEnd !== -1 && jsonEnd < jsonStr.length - 1) {
+      jsonStr = jsonStr.substring(0, jsonEnd + 1);
+    }
+
+    // 일반적인 JSON 오류 수정
+    // 1. 제어 문자 제거 (줄바꿈 제외)
+    jsonStr = jsonStr.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/g, '');
+
+    // 2. 잘못된 이스케이프 시퀀스 수정
+    jsonStr = jsonStr.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
+
     try {
       return JSON.parse(jsonStr) as T;
-    } catch (error) {
-      console.error('JSON Parse Error:', error);
-      console.error('Raw response:', response);
-      throw new Error('AI 응답을 파싱하는 중 오류가 발생했습니다.');
+    } catch (firstError) {
+      console.error('First JSON Parse Error:', firstError);
+
+      // 재시도: 더 공격적인 정리
+      try {
+        // 줄바꿈을 공백으로 변환 (문자열 내부 제외)
+        let cleanedJson = jsonStr;
+
+        // 문자열 값 내의 줄바꿈을 \\n으로 변환
+        cleanedJson = cleanedJson.replace(/"([^"]*(?:\\.[^"]*)*)"/g, (match) => {
+          return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+        });
+
+        return JSON.parse(cleanedJson) as T;
+      } catch (secondError) {
+        console.error('Second JSON Parse Error:', secondError);
+        console.error('Raw response length:', response.length);
+        console.error('Raw response (first 1000 chars):', response.substring(0, 1000));
+        console.error('Cleaned JSON (first 1000 chars):', jsonStr.substring(0, 1000));
+        throw new Error('AI 응답을 파싱하는 중 오류가 발생했습니다. 다시 시도해주세요.');
+      }
     }
   }
 
