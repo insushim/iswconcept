@@ -14,6 +14,7 @@ import {
   limit,
   serverTimestamp,
   Timestamp,
+  increment,
 } from 'firebase/firestore';
 import { db } from './config';
 import type { Lesson } from '@/types/lesson';
@@ -26,13 +27,28 @@ export async function createLesson(
   userId: string,
   lessonData: Omit<Lesson, 'id' | 'user_id' | 'created_at' | 'updated_at'>
 ) {
-  const docRef = await addDoc(collection(db, 'lessons'), {
-    ...lessonData,
-    user_id: userId,
-    created_at: serverTimestamp(),
-    updated_at: serverTimestamp(),
-  });
-  return docRef.id;
+  try {
+    const docRef = await addDoc(collection(db, 'lessons'), {
+      ...lessonData,
+      user_id: userId,
+      is_public: lessonData.is_public ?? false,
+      view_count: lessonData.view_count ?? 0,
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    });
+
+    // 저장이 완료되었는지 확인 (서버에서 데이터 읽기)
+    const savedDoc = await getDoc(docRef);
+    if (!savedDoc.exists()) {
+      throw new Error('수업 저장에 실패했습니다. 다시 시도해주세요.');
+    }
+
+    console.log('Lesson saved successfully:', docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating lesson:', error);
+    throw error;
+  }
 }
 
 // 수업 조회
@@ -73,6 +89,27 @@ export async function getUserLessons(userId: string, limitCount: number = 50) {
   });
 }
 
+// 공개 수업 조회 (자료실)
+export async function getPublicLessons(limitCount: number = 50) {
+  const q = query(
+    collection(db, 'lessons'),
+    where('is_public', '==', true),
+    orderBy('created_at', 'desc'),
+    limit(limitCount)
+  );
+
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+      updated_at: data.updated_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+    } as Lesson;
+  });
+}
+
 // 수업 업데이트
 export async function updateLesson(lessonId: string, data: Partial<Lesson>) {
   const docRef = doc(db, 'lessons', lessonId);
@@ -80,6 +117,50 @@ export async function updateLesson(lessonId: string, data: Partial<Lesson>) {
     ...data,
     updated_at: serverTimestamp(),
   });
+}
+
+// 수업 공개/비공개 토글
+export async function toggleLessonPublic(lessonId: string, isPublic: boolean) {
+  const docRef = doc(db, 'lessons', lessonId);
+  await updateDoc(docRef, {
+    is_public: isPublic,
+    updated_at: serverTimestamp(),
+  });
+}
+
+// 조회수 증가
+export async function incrementViewCount(lessonId: string) {
+  const docRef = doc(db, 'lessons', lessonId);
+  await updateDoc(docRef, {
+    view_count: increment(1),
+  });
+}
+
+// 수업 복사 (다른 사용자의 공개 수업을 내 것으로 복사)
+export async function copyLesson(lessonId: string, newUserId: string) {
+  const originalLesson = await getLesson(lessonId);
+  if (!originalLesson) {
+    throw new Error('원본 수업을 찾을 수 없습니다.');
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id, user_id, created_at, updated_at, view_count, is_public, ...lessonData } = originalLesson;
+
+  const newLessonId = await createLesson(newUserId, {
+    ...lessonData,
+    title: `${lessonData.title} (복사본)`,
+    status: 'draft',
+    is_public: false,
+    view_count: 0,
+  });
+
+  // 자료도 복사
+  const materials = await getMaterialsByLesson(lessonId);
+  for (const material of materials) {
+    await createMaterial(newLessonId, material.type, material.title, material.content);
+  }
+
+  return newLessonId;
 }
 
 // 수업 삭제
@@ -96,28 +177,41 @@ export async function createMaterial(
   title: string,
   content: unknown
 ) {
-  // 기존 최신 버전 비활성화
-  const existingMaterials = await getMaterialsByLessonAndType(lessonId, type);
-  for (const material of existingMaterials) {
-    if (material.is_latest) {
-      await updateDoc(doc(db, 'materials', material.id), {
-        is_latest: false,
-        content: null, // 비용 최적화: 구버전 내용 삭제
-      });
+  try {
+    // 기존 최신 버전 비활성화
+    const existingMaterials = await getMaterialsByLessonAndType(lessonId, type);
+    for (const material of existingMaterials) {
+      if (material.is_latest) {
+        await updateDoc(doc(db, 'materials', material.id), {
+          is_latest: false,
+          content: null, // 비용 최적화: 구버전 내용 삭제
+        });
+      }
     }
-  }
 
-  const docRef = await addDoc(collection(db, 'materials'), {
-    lesson_id: lessonId,
-    type,
-    title,
-    content,
-    version: existingMaterials.length + 1,
-    is_latest: true,
-    created_at: serverTimestamp(),
-    updated_at: serverTimestamp(),
-  });
-  return docRef.id;
+    const docRef = await addDoc(collection(db, 'materials'), {
+      lesson_id: lessonId,
+      type,
+      title,
+      content,
+      version: existingMaterials.length + 1,
+      is_latest: true,
+      created_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    });
+
+    // 저장이 완료되었는지 확인
+    const savedDoc = await getDoc(docRef);
+    if (!savedDoc.exists()) {
+      throw new Error('자료 저장에 실패했습니다.');
+    }
+
+    console.log('Material saved successfully:', docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating material:', error);
+    throw error;
+  }
 }
 
 // 수업의 모든 자료 조회
@@ -180,6 +274,15 @@ export async function updateMaterial(materialId: string, content: unknown) {
   );
 }
 
+// 자료 직접 업데이트 (버전 없이)
+export async function updateMaterialContent(materialId: string, content: unknown) {
+  const docRef = doc(db, 'materials', materialId);
+  await updateDoc(docRef, {
+    content,
+    updated_at: serverTimestamp(),
+  });
+}
+
 // 자료 조회 (단일)
 export async function getMaterial(materialId: string) {
   const docRef = doc(db, 'materials', materialId);
@@ -217,8 +320,8 @@ export async function addGenerationHistory(
 
 // 생성 기록 조회
 export async function getGenerationHistory(userId: string, limitCount: number = 50) {
-  // 먼저 사용자의 수업 ID들을 가져옴
-  const lessons = await getUserLessons(userId, 100);
+  // 먼저 사용자의 수업 ID들을 가져옴 (최적화: 최근 30개만)
+  const lessons = await getUserLessons(userId, 30);
   const lessonIds = lessons.map((l) => l.id);
 
   if (lessonIds.length === 0) {
@@ -226,21 +329,22 @@ export async function getGenerationHistory(userId: string, limitCount: number = 
   }
 
   // Firestore에서는 'in' 쿼리가 최대 10개까지만 지원
+  // 병렬 실행으로 최적화
   const batchSize = 10;
-  const results: unknown[] = [];
+  const batchPromises: Promise<unknown[]>[] = [];
 
   for (let i = 0; i < lessonIds.length; i += batchSize) {
     const batch = lessonIds.slice(i, i + batchSize);
-    const q = query(
-      collection(db, 'generation_history'),
-      where('lesson_id', 'in', batch),
-      orderBy('created_at', 'desc'),
-      limit(limitCount)
-    );
+    const batchPromise = (async () => {
+      const q = query(
+        collection(db, 'generation_history'),
+        where('lesson_id', 'in', batch),
+        orderBy('created_at', 'desc'),
+        limit(Math.ceil(limitCount / Math.ceil(lessonIds.length / batchSize)))
+      );
 
-    const querySnapshot = await getDocs(q);
-    results.push(
-      ...querySnapshot.docs.map((doc) => {
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map((doc) => {
         const data = doc.data();
         const lesson = lessons.find((l) => l.id === data.lesson_id);
         return {
@@ -249,9 +353,18 @@ export async function getGenerationHistory(userId: string, limitCount: number = 
           created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
           lesson: lesson ? { title: lesson.title } : null,
         };
-      })
-    );
+      });
+    })();
+    batchPromises.push(batchPromise);
   }
+
+  const batchResults = await Promise.all(batchPromises);
+  const results = batchResults.flat();
+
+  // 날짜순 정렬 후 limit 적용
+  results.sort((a: { created_at: string }, b: { created_at: string }) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
 
   return results.slice(0, limitCount);
 }

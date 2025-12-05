@@ -207,40 +207,59 @@ export function LessonForm() {
       // Firestore에 수업 저장
       updateStep(3, 80, '저장 중...');
       const lessonDesign = data.lessonDesign;
-      const lessonId = await createLesson(user.uid, {
-        title: lessonDesign.lessonOverview?.title || `${formData.subject} ${formData.unit} ${formData.period}차시`,
-        publisher_id: formData.publisher,
-        subject_id: formData.subject,
-        unit_id: formData.unit,
-        grade: parseInt(formData.grade),
-        class_period: parseInt(formData.period) || 1,
-        duration: parseInt(formData.duration),
-        learning_objectives: formData.objectives.split('\n').filter((o) => o.trim()),
-        achievement_standards: formData.achievementStandards?.split('\n').filter((s) => s.trim()) || [],
-        core_concepts: lessonDesign.lessonOverview?.coreConcepts || [],
-        related_concepts: lessonDesign.lessonOverview?.relatedConcepts || [],
-        big_ideas: lessonDesign.lessonOverview?.bigIdeas || [],
-        factual_questions: lessonDesign.lessonOverview?.guidingQuestions?.factual || [],
-        conceptual_questions: lessonDesign.lessonOverview?.guidingQuestions?.conceptual || [],
-        debatable_questions: lessonDesign.lessonOverview?.guidingQuestions?.debatable || [],
-        stage_engage: lessonDesign.stages?.engage || {},
-        stage_focus: lessonDesign.stages?.focus || {},
-        stage_investigate: lessonDesign.stages?.investigate || {},
-        stage_organize: lessonDesign.stages?.organize || {},
-        stage_generalize: lessonDesign.stages?.generalize || {},
-        stage_transfer: lessonDesign.stages?.transfer || {},
-        stage_reflect: lessonDesign.stages?.reflect || {},
-        assessment_plan: lessonDesign.assessmentPlan || {},
-        preparation: lessonDesign.preparation || [],
-        safety_notes: lessonDesign.safetyNotes || [],
-        differentiation: lessonDesign.differentiation || {},
-        status: 'generated',
-        is_public: false,
-        view_count: 0,
-      });
+
+      let lessonId: string;
+      try {
+        lessonId = await createLesson(user.uid, {
+          title: lessonDesign.lessonOverview?.title || `${formData.subject} ${formData.unit} ${formData.period}차시`,
+          publisher_id: formData.publisher,
+          subject_id: formData.subject,
+          unit_id: formData.unit,
+          grade: parseInt(formData.grade),
+          class_period: parseInt(formData.period) || 1,
+          duration: parseInt(formData.duration),
+          learning_objectives: formData.objectives.split('\n').filter((o) => o.trim()),
+          achievement_standards: formData.achievementStandards?.split('\n').filter((s) => s.trim()) || [],
+          core_concepts: lessonDesign.lessonOverview?.coreConcepts || [],
+          related_concepts: lessonDesign.lessonOverview?.relatedConcepts || [],
+          big_ideas: lessonDesign.lessonOverview?.bigIdeas || [],
+          factual_questions: lessonDesign.lessonOverview?.guidingQuestions?.factual || [],
+          conceptual_questions: lessonDesign.lessonOverview?.guidingQuestions?.conceptual || [],
+          debatable_questions: lessonDesign.lessonOverview?.guidingQuestions?.debatable || [],
+          stage_engage: lessonDesign.stages?.engage || {},
+          stage_focus: lessonDesign.stages?.focus || {},
+          stage_investigate: lessonDesign.stages?.investigate || {},
+          stage_organize: lessonDesign.stages?.organize || {},
+          stage_generalize: lessonDesign.stages?.generalize || {},
+          stage_transfer: lessonDesign.stages?.transfer || {},
+          stage_reflect: lessonDesign.stages?.reflect || {},
+          assessment_plan: lessonDesign.assessmentPlan || {},
+          preparation: lessonDesign.preparation || [],
+          safety_notes: lessonDesign.safetyNotes || [],
+          differentiation: lessonDesign.differentiation || {},
+          status: 'generated',
+          is_public: true, // 자동으로 공유 자료실에 공개
+          view_count: 0,
+        });
+        console.log('Lesson created with ID:', lessonId);
+      } catch (saveError) {
+        console.error('Failed to save lesson:', saveError);
+        throw new Error('수업 저장에 실패했습니다. 다시 시도해주세요.');
+      }
 
       // 수업 설계 자료 저장 (대본, PPT, 학습지는 나중에 별도 생성)
-      await createMaterial(lessonId, 'lesson_plan', '교수학습지도안', lessonDesign);
+      try {
+        await createMaterial(lessonId, 'lesson_plan', '교수학습지도안', lessonDesign);
+        console.log('Material created for lesson:', lessonId);
+      } catch (materialError) {
+        console.error('Failed to save material:', materialError);
+        // 자료 저장 실패는 경고만 표시하고 계속 진행
+        toast({
+          title: '경고',
+          description: '교수학습지도안 저장에 일부 문제가 있습니다.',
+          variant: 'default',
+        });
+      }
 
       // 완료
       const completedSteps = steps.map((s) => ({ ...s, status: 'completed' as const }));

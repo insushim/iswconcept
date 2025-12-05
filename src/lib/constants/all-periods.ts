@@ -30,18 +30,127 @@ const SUBJECT_ACHIEVEMENT_PREFIX: Record<string, string> = {
   safelife: '안전',
 };
 
-// 단원명에서 학습 목표 생성 함수
-const generateObjectivesFromUnitName = (unitName: string, period: number, totalPeriods: number): string[] => {
+// 단원명에서 학습 목표 생성 함수 - 과목별 맞춤형 목표 생성
+const generateObjectivesFromUnitName = (unitName: string, period: number, totalPeriods: number, subject?: string): string[] => {
   // 단원명에서 숫자와 점 제거 (예: "1. 물질의 성질" -> "물질의 성질")
   const cleanName = unitName.replace(/^\d+\.\s*/, '');
 
-  if (period === 1) {
-    return [`${cleanName}에 대해 알 수 있다.`, `${cleanName}의 기초 개념을 이해할 수 있다.`];
-  } else if (period === totalPeriods) {
-    return [`${cleanName}에서 배운 내용을 정리할 수 있다.`, `${cleanName}의 개념을 다른 상황에 적용할 수 있다.`];
-  } else {
-    return [`${cleanName}의 ${period}차시 내용을 이해할 수 있다.`];
-  }
+  // 과목별 차시 템플릿
+  const subjectTemplates: Record<string, (name: string, p: number, total: number) => string[]> = {
+    korean: (name, p, total) => {
+      if (p === 1) return [`${name}의 개념을 이해할 수 있다.`, `${name}에 대해 탐구할 수 있다.`];
+      if (p === 2) return [`${name}과 관련된 글을 읽고 내용을 파악할 수 있다.`];
+      if (p === 3) return [`${name}을 위한 방법과 전략을 알 수 있다.`];
+      if (p === 4) return [`${name}을 실생활에서 실천할 수 있다.`];
+      if (p === total - 1) return [`${name}과 관련된 글을 쓸 수 있다.`];
+      if (p === total) return [`${name}에서 배운 내용을 정리하고 발표할 수 있다.`];
+      return [`${name}에 대해 더 깊이 탐구할 수 있다.`];
+    },
+    math: (name, p, total) => {
+      if (p === 1) return [`${name}의 개념을 이해할 수 있다.`];
+      if (p === 2) return [`${name}의 원리를 탐구할 수 있다.`];
+      if (p === total - 1) return [`${name}을 활용하여 문제를 해결할 수 있다.`];
+      if (p === total) return [`${name}에서 배운 내용을 정리하고 적용할 수 있다.`];
+      return [`${name}의 다양한 방법을 익힐 수 있다.`];
+    },
+    science: (name, p, total) => {
+      if (p === 1) return [`${name}에 대해 알 수 있다.`, `${name}의 특징을 탐구할 수 있다.`];
+      if (p === 2) return [`${name}을 관찰하고 특징을 설명할 수 있다.`];
+      if (p === total - 1) return [`${name}을 실험을 통해 탐구할 수 있다.`];
+      if (p === total) return [`${name}에서 배운 내용을 정리하고 발표할 수 있다.`];
+      return [`${name}에 대해 더 깊이 탐구할 수 있다.`];
+    },
+    society: (name, p, total) => {
+      if (p === 1) return [`${name}의 의미를 알 수 있다.`];
+      if (p === 2) return [`${name}의 특징을 조사할 수 있다.`];
+      if (p === total - 1) return [`${name}과 관련된 문제를 탐구할 수 있다.`];
+      if (p === total) return [`${name}에서 배운 내용을 정리하고 발표할 수 있다.`];
+      return [`${name}에 대해 더 깊이 탐구할 수 있다.`];
+    },
+    english: (name, p, total) => {
+      if (p === 1) return [`${name} 관련 표현을 듣고 이해할 수 있다.`];
+      if (p === 2) return [`${name} 관련 어휘와 표현을 익힐 수 있다.`];
+      if (p === 3) return [`${name} 관련 문장을 읽고 쓸 수 있다.`];
+      if (p === total) return [`${name} 관련 대화를 할 수 있다.`];
+      return [`${name} 관련 표현을 연습할 수 있다.`];
+    },
+    moral: (name, p, total) => {
+      if (p === 1) return [`${name}의 의미를 이해할 수 있다.`];
+      if (p === 2) return [`${name}의 중요성을 알 수 있다.`];
+      if (p === total - 1) return [`${name}을 실천하는 방법을 알 수 있다.`];
+      if (p === total) return [`${name}을 일상생활에서 실천할 수 있다.`];
+      return [`${name}에 대해 생각해 볼 수 있다.`];
+    },
+    music: (name, p, total) => {
+      if (p === 1) return [`${name} 관련 음악을 감상할 수 있다.`];
+      if (p === 2) return [`${name} 관련 음악적 요소를 이해할 수 있다.`];
+      if (p === total - 1) return [`${name} 관련 노래를 부를 수 있다.`];
+      if (p === total) return [`${name} 관련 음악 활동에 참여할 수 있다.`];
+      return [`${name}을 음악으로 표현할 수 있다.`];
+    },
+    art: (name, p, total) => {
+      if (p === 1) return [`${name}을 감상할 수 있다.`];
+      if (p === 2) return [`${name}의 표현 방법을 알 수 있다.`];
+      if (p === total - 1) return [`${name}을 다양한 재료로 표현할 수 있다.`];
+      if (p === total) return [`${name} 작품을 완성하고 감상할 수 있다.`];
+      return [`${name}을 창의적으로 표현할 수 있다.`];
+    },
+    pe: (name, p, total) => {
+      if (p === 1) return [`${name}의 기본 동작을 알 수 있다.`];
+      if (p === 2) return [`${name}의 기본 기능을 익힐 수 있다.`];
+      if (p === total - 1) return [`${name}을 응용하여 활동할 수 있다.`];
+      if (p === total) return [`${name} 관련 경기나 활동에 참여할 수 있다.`];
+      return [`${name}의 기능을 연습할 수 있다.`];
+    },
+    practical: (name, p, total) => {
+      if (p === 1) return [`${name}의 개념을 이해할 수 있다.`];
+      if (p === 2) return [`${name}의 방법을 알 수 있다.`];
+      if (p === total - 1) return [`${name}을 직접 실습할 수 있다.`];
+      if (p === total) return [`${name}을 생활에 적용할 수 있다.`];
+      return [`${name}을 체험할 수 있다.`];
+    },
+    // 1~2학년 통합교과
+    spring: (name, p, total) => {
+      if (p === 1) return [`${name}에 대해 알아볼 수 있다.`];
+      if (p === 2) return [`${name}을 탐색할 수 있다.`];
+      if (p === total) return [`${name}을 표현하고 나눌 수 있다.`];
+      return [`${name}에 대해 경험할 수 있다.`];
+    },
+    summer: (name, p, total) => {
+      if (p === 1) return [`${name}에 대해 알아볼 수 있다.`];
+      if (p === 2) return [`${name}을 탐색할 수 있다.`];
+      if (p === total) return [`${name}을 표현하고 나눌 수 있다.`];
+      return [`${name}에 대해 경험할 수 있다.`];
+    },
+    autumn: (name, p, total) => {
+      if (p === 1) return [`${name}에 대해 알아볼 수 있다.`];
+      if (p === 2) return [`${name}을 탐색할 수 있다.`];
+      if (p === total) return [`${name}을 표현하고 나눌 수 있다.`];
+      return [`${name}에 대해 경험할 수 있다.`];
+    },
+    winter: (name, p, total) => {
+      if (p === 1) return [`${name}에 대해 알아볼 수 있다.`];
+      if (p === 2) return [`${name}을 탐색할 수 있다.`];
+      if (p === total) return [`${name}을 표현하고 나눌 수 있다.`];
+      return [`${name}에 대해 경험할 수 있다.`];
+    },
+    safelife: (name, p, total) => {
+      if (p === 1) return [`${name}의 중요성을 알 수 있다.`];
+      if (p === 2) return [`${name}의 방법을 알 수 있다.`];
+      if (p === total) return [`${name}을 실천할 수 있다.`];
+      return [`${name}에 대해 연습할 수 있다.`];
+    },
+  };
+
+  const template = subject && subjectTemplates[subject]
+    ? subjectTemplates[subject]
+    : (name: string, p: number, total: number) => {
+        if (p === 1) return [`${name}에 대해 알 수 있다.`, `${name}의 기초 개념을 이해할 수 있다.`];
+        if (p === total) return [`${name}에서 배운 내용을 정리할 수 있다.`, `${name}의 개념을 다른 상황에 적용할 수 있다.`];
+        return [`${name}에 대해 더 깊이 탐구할 수 있다.`];
+      };
+
+  return template(cleanName, period, totalPeriods);
 };
 
 // 기본 차시 생성 함수 (차시 데이터가 없는 단원용)
@@ -61,7 +170,7 @@ const generateDefaultPeriods = (unitId: string, unitName: string, periodCount: n
   }
 
   for (let i = 1; i <= periodCount; i++) {
-    const objectives = generateObjectivesFromUnitName(unitName, i, periodCount);
+    const objectives = generateObjectivesFromUnitName(unitName, i, periodCount, subject);
     const achievementStandards = achievementCode ? [`${achievementCode} ${objectives[0]}`] : [];
 
     periods.push({
@@ -96,13 +205,21 @@ export const getPeriodsForUnitName = (unitName: string, subject: string, grade: 
     'art': 'art',
     'pe': 'pe',
     'practical': 'prac',
+    'spring': 'spr',
+    'summer': 'sum',
+    'autumn': 'aut',
+    'winter': 'win',
+    'safelife': 'safe',
   };
 
   const prefix = subjectPrefixMap[subject] || subject;
 
   // 가능한 ID 패턴들 검색 - 기존 데이터에서 찾기
+  // ID 패턴: kor_4_1_1 (과목_학년_학기_단원)
   for (const [key, unitLessons] of Object.entries(ALL_LESSONS)) {
-    if (key.startsWith(prefix) && key.includes(`_${grade}_`) && unitLessons.unitName === unitName) {
+    // 과목 접두사로 시작하고 학년을 포함하는지 확인 (예: kor_4_1_1, kor_4_2_1)
+    const gradePattern = new RegExp(`^${prefix}_${grade}_`);
+    if (gradePattern.test(key) && unitLessons.unitName === unitName) {
       return unitLessons.periods;
     }
   }
@@ -167,6 +284,11 @@ export const getUnitsBySubjectGrade = (subject: string, grade: string): UnitLess
     'art': 'art',
     'pe': 'pe',
     'practical': 'prac',
+    'spring': 'spr',
+    'summer': 'sum',
+    'autumn': 'aut',
+    'winter': 'win',
+    'safelife': 'safe',
   };
 
   const prefix = subjectPrefixMap[subject] || subject;

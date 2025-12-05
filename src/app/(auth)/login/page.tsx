@@ -7,16 +7,8 @@ import { signIn } from '@/lib/firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, BookOpen } from 'lucide-react';
+import { Loader2, Mail, Lock, ArrowRight, BookOpen } from 'lucide-react';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -56,22 +48,42 @@ function LoginForm() {
   };
 
   return (
-    <Card className="shadow-lg">
-      <CardHeader className="text-center">
-        <div className="flex justify-center mb-4">
-          <div className="p-3 bg-indigo-100 rounded-full">
-            <BookOpen className="h-8 w-8 text-indigo-600" />
-          </div>
+    <div className="space-y-8 animate-fade-in-up">
+      {/* Mobile Logo */}
+      <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
+        <div className="w-12 h-12 rounded-2xl gradient-primary flex items-center justify-center">
+          <svg
+            className="w-7 h-7 text-white"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+          </svg>
         </div>
-        <CardTitle className="text-2xl">CBI Lesson Designer</CardTitle>
-        <CardDescription>
-          전북형 개념기반탐구 AI 수업설계 시스템
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleLogin}>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">이메일</Label>
+        <span className="font-bold text-2xl text-gradient">CBI Lesson</span>
+      </div>
+
+      {/* Header */}
+      <div className="space-y-2 text-center lg:text-left">
+        <h1 className="text-3xl font-bold tracking-tight">로그인</h1>
+        <p className="text-muted-foreground">
+          CBI Lesson Designer에 오신 것을 환영합니다
+        </p>
+      </div>
+
+      {/* Form */}
+      <form onSubmit={handleLogin} className="space-y-5">
+        <div className="space-y-2">
+          <Label htmlFor="email" className="text-sm font-medium">
+            이메일
+          </Label>
+          <div className="relative">
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="email"
               type="email"
@@ -80,56 +92,111 @@ function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={isLoading}
+              className="pl-10 h-12 bg-secondary/50 border-0 focus:bg-background focus:ring-2 focus:ring-primary/20 transition-all"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">비밀번호</Label>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password" className="text-sm font-medium">
+              비밀번호
+            </Label>
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline font-medium"
+            >
+              비밀번호 찾기
+            </button>
+          </div>
+          <div className="relative">
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="password"
               type="password"
-              placeholder="••••••••"
+              placeholder="비밀번호를 입력하세요"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={isLoading}
+              className="pl-10 h-12 bg-secondary/50 border-0 focus:bg-background focus:ring-2 focus:ring-primary/20 transition-all"
             />
           </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                로그인 중...
-              </>
-            ) : (
-              '로그인'
-            )}
-          </Button>
-          <p className="text-sm text-center text-muted-foreground">
-            계정이 없으신가요?{' '}
-            <Link
-              href="/register"
-              className="text-indigo-600 hover:underline font-medium"
-            >
-              회원가입
-            </Link>
-          </p>
-        </CardFooter>
+        </div>
+
+        <Button
+          type="submit"
+          className="w-full h-12 gradient-primary text-white font-medium text-base shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:scale-[1.02] transition-all duration-300"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              로그인 중...
+            </>
+          ) : (
+            <>
+              로그인
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </>
+          )}
+        </Button>
       </form>
-    </Card>
+
+      {/* Divider */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-3 text-muted-foreground">
+            또는
+          </span>
+        </div>
+      </div>
+
+      {/* Register link */}
+      <p className="text-center text-sm text-muted-foreground">
+        계정이 없으신가요?{' '}
+        <Link
+          href="/register"
+          className="text-primary hover:text-primary/80 font-semibold transition-colors"
+        >
+          회원가입
+        </Link>
+      </p>
+
+      {/* Shared Library link */}
+      <Link href="/library" className="block">
+        <div className="flex items-center justify-center gap-3 p-4 rounded-xl bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20 hover:border-violet-500/40 transition-all group cursor-pointer">
+          <div className="p-2 rounded-lg bg-violet-500/20">
+            <BookOpen className="h-5 w-5 text-violet-600" />
+          </div>
+          <div className="text-left">
+            <p className="font-medium text-sm">선생님 공유 자료실</p>
+            <p className="text-xs text-muted-foreground">다른 선생님들이 공유한 수업 자료 보기</p>
+          </div>
+          <ArrowRight className="h-4 w-4 text-violet-600 group-hover:translate-x-1 transition-transform" />
+        </div>
+      </Link>
+    </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <Card className="shadow-lg">
-        <CardContent className="py-12 text-center">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin text-indigo-600" />
-        </CardContent>
-      </Card>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl gradient-primary flex items-center justify-center animate-pulse">
+              <Loader2 className="h-6 w-6 text-white animate-spin" />
+            </div>
+            <p className="text-sm text-muted-foreground">로딩 중...</p>
+          </div>
+        </div>
+      }
+    >
       <LoginForm />
     </Suspense>
   );

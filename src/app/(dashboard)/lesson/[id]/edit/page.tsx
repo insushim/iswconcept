@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft,
   Save,
@@ -22,13 +23,17 @@ import {
   GripVertical,
   ChevronDown,
   ChevronUp,
+  Loader2,
+  Globe,
+  Lock,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { CBI_STAGES, type CBIStageId } from '@/lib/constants/cbi-stages';
+import { getLesson, getMaterialsByLesson, updateLesson, updateMaterialContent, toggleLessonPublic } from '@/lib/firebase/firestore';
 import type { Lesson } from '@/types/lesson';
 import type { Material } from '@/types/material';
 
-export default function LessonEditPage() {
+function EditPageContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -47,20 +52,23 @@ export default function LessonEditPage() {
   useEffect(() => {
     const fetchLesson = async () => {
       try {
-        const response = await fetch(`/api/lesson/${params.id}`);
-        const data = await response.json();
+        const lessonId = params.id as string;
 
-        if (!response.ok) {
-          throw new Error(data.error);
+        // Firebase에서 직접 데이터 가져오기
+        const lessonData = await getLesson(lessonId);
+        if (!lessonData) {
+          throw new Error('수업을 찾을 수 없습니다.');
         }
 
-        setLesson(data.lesson);
-        setMaterials(data.materials);
-        setEditedLesson(data.lesson);
+        const materialsData = await getMaterialsByLesson(lessonId);
+
+        setLesson(lessonData);
+        setMaterials(materialsData);
+        setEditedLesson(lessonData);
 
         // 자료 내용 초기화
         const materialContents: Record<string, unknown> = {};
-        for (const material of data.materials) {
+        for (const material of materialsData) {
           materialContents[material.type] = material.content;
         }
         setEditedMaterials(materialContents);
@@ -82,28 +90,18 @@ export default function LessonEditPage() {
   }, [params.id, router]);
 
   const handleSave = async () => {
+    if (!lesson) return;
+
     setSaving(true);
     try {
-      // 수업 정보 저장
-      const lessonResponse = await fetch(`/api/lesson/${params.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editedLesson),
-      });
+      // 수업 정보 저장 (Firebase)
+      await updateLesson(lesson.id, editedLesson);
 
-      if (!lessonResponse.ok) {
-        throw new Error('수업 정보 저장 실패');
-      }
-
-      // 자료 저장
+      // 자료 저장 (Firebase)
       for (const [type, content] of Object.entries(editedMaterials)) {
         const material = materials.find((m) => m.type === type);
-        if (material) {
-          await fetch(`/api/materials/${material.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content }),
-          });
+        if (material && content) {
+          await updateMaterialContent(material.id, content);
         }
       }
 
@@ -123,12 +121,38 @@ export default function LessonEditPage() {
     }
   };
 
+  const handleTogglePublic = async () => {
+    if (!lesson) return;
+
+    try {
+      const newPublicState = !editedLesson.is_public;
+      await toggleLessonPublic(lesson.id, newPublicState);
+      setEditedLesson({ ...editedLesson, is_public: newPublicState });
+
+      toast({
+        title: newPublicState ? '공개 설정됨' : '비공개 설정됨',
+        description: newPublicState
+          ? '이제 다른 선생님들이 이 자료를 볼 수 있습니다.'
+          : '이 자료는 본인만 볼 수 있습니다.',
+        variant: 'success',
+      });
+    } catch (error) {
+      toast({
+        title: '설정 실패',
+        description: '공개 설정 변경 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-muted-foreground">수업 정보를 불러오는 중...</p>
+        <div className="flex flex-col items-center gap-4">
+          <div className="p-4 rounded-2xl gradient-primary animate-pulse">
+            <Loader2 className="h-8 w-8 text-white animate-spin" />
+          </div>
+          <p className="text-sm text-muted-foreground">수업 정보를 불러오는 중...</p>
         </div>
       </div>
     );
@@ -139,9 +163,9 @@ export default function LessonEditPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* 헤더 */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-start gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-5 w-5" />
@@ -152,13 +176,40 @@ export default function LessonEditPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* 공개/비공개 토글 */}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50">
+            {editedLesson.is_public ? (
+              <Globe className="h-4 w-4 text-green-600" />
+            ) : (
+              <Lock className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span className="text-sm">{editedLesson.is_public ? '공개' : '비공개'}</span>
+            <Switch
+              checked={editedLesson.is_public || false}
+              onCheckedChange={handleTogglePublic}
+            />
+          </div>
+
           <Link href={`/lesson/${lesson.id}`}>
             <Button variant="outline">취소</Button>
           </Link>
-          <Button onClick={handleSave} disabled={saving}>
-            <Save className="mr-2 h-4 w-4" />
-            {saving ? '저장 중...' : '저장'}
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="gradient-primary text-white"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                저장 중...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                저장
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -167,34 +218,34 @@ export default function LessonEditPage() {
         <TabsList className="grid grid-cols-5 w-full max-w-2xl">
           <TabsTrigger value="lesson" className="flex items-center gap-1">
             <FileText className="h-4 w-4" />
-            기본정보
+            <span className="hidden sm:inline">기본정보</span>
           </TabsTrigger>
           <TabsTrigger value="stages" className="flex items-center gap-1">
             <BookOpen className="h-4 w-4" />
-            7단계
+            <span className="hidden sm:inline">7단계</span>
           </TabsTrigger>
           <TabsTrigger value="lesson_plan" className="flex items-center gap-1">
             <FileText className="h-4 w-4" />
-            지도안
+            <span className="hidden sm:inline">지도안</span>
           </TabsTrigger>
           <TabsTrigger value="pptx" className="flex items-center gap-1">
             <Presentation className="h-4 w-4" />
-            PPT
+            <span className="hidden sm:inline">PPT</span>
           </TabsTrigger>
           <TabsTrigger value="worksheet" className="flex items-center gap-1">
             <FileSpreadsheet className="h-4 w-4" />
-            학습지
+            <span className="hidden sm:inline">학습지</span>
           </TabsTrigger>
         </TabsList>
 
         {/* 기본정보 탭 */}
         <TabsContent value="lesson" className="space-y-4">
-          <Card>
+          <Card className="border-0 shadow-sm bg-card/80 backdrop-blur-sm">
             <CardHeader>
               <CardTitle>기본 정보</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="title">수업 제목</Label>
                   <Input
@@ -203,6 +254,7 @@ export default function LessonEditPage() {
                     onChange={(e) =>
                       setEditedLesson({ ...editedLesson, title: e.target.value })
                     }
+                    className="h-11 bg-secondary/50 border-0"
                   />
                 </div>
                 <div className="space-y-2">
@@ -217,6 +269,7 @@ export default function LessonEditPage() {
                         duration: parseInt(e.target.value),
                       })
                     }
+                    className="h-11 bg-secondary/50 border-0"
                   />
                 </div>
               </div>
@@ -232,6 +285,7 @@ export default function LessonEditPage() {
                         newObjectives[i] = e.target.value;
                         setEditedLesson({ ...editedLesson, learning_objectives: newObjectives });
                       }}
+                      className="bg-secondary/50 border-0"
                     />
                     <Button
                       variant="ghost"
@@ -283,7 +337,7 @@ export default function LessonEditPage() {
                   ))}
                   <Input
                     placeholder="새 개념 입력 후 Enter"
-                    className="w-40"
+                    className="w-40 h-8 bg-secondary/50 border-0"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         const value = e.currentTarget.value.trim();
@@ -311,7 +365,7 @@ export default function LessonEditPage() {
                         newIdeas[i] = e.target.value;
                         setEditedLesson({ ...editedLesson, big_ideas: newIdeas });
                       }}
-                      className="min-h-[60px]"
+                      className="min-h-[60px] bg-secondary/50 border-0"
                     />
                     <Button
                       variant="ghost"
@@ -343,7 +397,7 @@ export default function LessonEditPage() {
           </Card>
 
           {/* 안내 질문 편집 */}
-          <Card>
+          <Card className="border-0 shadow-sm bg-card/80 backdrop-blur-sm">
             <CardHeader>
               <CardTitle>안내 질문</CardTitle>
             </CardHeader>
@@ -390,7 +444,7 @@ export default function LessonEditPage() {
 
         {/* 지도안 탭 */}
         <TabsContent value="lesson_plan" className="space-y-4">
-          <Card>
+          <Card className="border-0 shadow-sm bg-card/80 backdrop-blur-sm">
             <CardHeader>
               <CardTitle>교수학습 지도안 편집</CardTitle>
             </CardHeader>
@@ -428,6 +482,25 @@ export default function LessonEditPage() {
   );
 }
 
+export default function LessonEditPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="p-4 rounded-2xl gradient-primary animate-pulse">
+              <Loader2 className="h-8 w-8 text-white animate-spin" />
+            </div>
+            <p className="text-sm text-muted-foreground">로딩 중...</p>
+          </div>
+        </div>
+      }
+    >
+      <EditPageContent />
+    </Suspense>
+  );
+}
+
 // 질문 편집 컴포넌트
 function QuestionsEditor({
   title,
@@ -450,6 +523,7 @@ function QuestionsEditor({
               newQuestions[i] = e.target.value;
               onChange(newQuestions);
             }}
+            className="bg-secondary/50 border-0"
           />
           <Button
             variant="ghost"
@@ -486,7 +560,7 @@ function StageEditor({
   if (!stageData) return null;
 
   return (
-    <Card>
+    <Card className="border-0 shadow-sm bg-card/80 backdrop-blur-sm">
       <CardHeader
         className="cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -513,7 +587,7 @@ function StageEditor({
               onChange={(e) =>
                 onChange({ ...stageData, duration: parseInt(e.target.value) })
               }
-              className="w-24"
+              className="w-24 bg-secondary/50 border-0"
             />
           </div>
 
@@ -529,6 +603,7 @@ function StageEditor({
                     newObjectives[i] = e.target.value;
                     onChange({ ...stageData, objectives: newObjectives });
                   }}
+                  className="bg-secondary/50 border-0"
                 />
                 <Button
                   variant="ghost"
@@ -561,7 +636,7 @@ function StageEditor({
           <div className="space-y-2">
             <Label>활동</Label>
             {stageData.activities?.map((activity, i) => (
-              <Card key={i} className="p-3">
+              <Card key={i} className="p-3 bg-secondary/30">
                 <div className="flex items-start gap-2">
                   <GripVertical className="h-5 w-5 text-muted-foreground mt-2" />
                   <div className="flex-1 space-y-2">
@@ -573,6 +648,7 @@ function StageEditor({
                         newActivities[i] = { ...activity, title: e.target.value };
                         onChange({ ...stageData, activities: newActivities });
                       }}
+                      className="bg-background/50 border-0"
                     />
                     <Textarea
                       placeholder="활동 설명"
@@ -582,6 +658,7 @@ function StageEditor({
                         newActivities[i] = { ...activity, description: e.target.value };
                         onChange({ ...stageData, activities: newActivities });
                       }}
+                      className="bg-background/50 border-0"
                     />
                     <div className="flex gap-2">
                       <Input
@@ -596,7 +673,7 @@ function StageEditor({
                           };
                           onChange({ ...stageData, activities: newActivities });
                         }}
-                        className="w-24"
+                        className="w-24 bg-background/50 border-0"
                       />
                       <Input
                         placeholder="활동 유형 (개별/모둠/전체)"
@@ -606,6 +683,7 @@ function StageEditor({
                           newActivities[i] = { ...activity, type: e.target.value as 'individual' | 'pair' | 'group' | 'whole_class' };
                           onChange({ ...stageData, activities: newActivities });
                         }}
+                        className="bg-background/50 border-0"
                       />
                     </div>
                   </div>
@@ -641,7 +719,7 @@ function StageEditor({
           </div>
 
           {/* 교사/학생 행동 */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>교사 행동</Label>
               {stageData.teacherActions?.map((action, i) => (
@@ -653,6 +731,7 @@ function StageEditor({
                       newActions[i] = e.target.value;
                       onChange({ ...stageData, teacherActions: newActions });
                     }}
+                    className="bg-secondary/50 border-0"
                   />
                   <Button
                     variant="ghost"
@@ -692,6 +771,7 @@ function StageEditor({
                       newActions[i] = e.target.value;
                       onChange({ ...stageData, studentActions: newActions });
                     }}
+                    className="bg-secondary/50 border-0"
                   />
                   <Button
                     variant="ghost"
@@ -782,14 +862,14 @@ function PPTEditor({
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">PPT 슬라이드 편집</h3>
-        <Button onClick={addSlide}>
+        <Button onClick={addSlide} className="gradient-primary text-white">
           <Plus className="mr-2 h-4 w-4" />
           슬라이드 추가
         </Button>
       </div>
 
       {slides.map((slide, index) => (
-        <Card key={slide.id}>
+        <Card key={slide.id} className="border-0 shadow-sm bg-card/80 backdrop-blur-sm">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
@@ -825,6 +905,7 @@ function PPTEditor({
               <Input
                 value={slide.title}
                 onChange={(e) => updateSlide(index, { title: e.target.value })}
+                className="bg-secondary/50 border-0"
               />
             </div>
             <div className="space-y-2">
@@ -836,7 +917,7 @@ function PPTEditor({
                     content: e.target.value.split('\n').filter((line) => line.trim()),
                   })
                 }
-                className="min-h-[100px]"
+                className="min-h-[100px] bg-secondary/50 border-0"
               />
             </div>
             <div className="space-y-2">
@@ -845,7 +926,7 @@ function PPTEditor({
                 value={slide.notes || ''}
                 onChange={(e) => updateSlide(index, { notes: e.target.value })}
                 placeholder="이 슬라이드에 대한 메모..."
-                className="min-h-[60px]"
+                className="min-h-[60px] bg-secondary/50 border-0"
               />
             </div>
           </CardContent>
@@ -853,9 +934,9 @@ function PPTEditor({
       ))}
 
       {slides.length === 0 && (
-        <Card className="p-8 text-center">
+        <Card className="p-8 text-center border-0 shadow-sm bg-card/80 backdrop-blur-sm">
           <p className="text-muted-foreground mb-4">아직 슬라이드가 없습니다.</p>
-          <Button onClick={addSlide}>
+          <Button onClick={addSlide} className="gradient-primary text-white">
             <Plus className="mr-2 h-4 w-4" />
             첫 슬라이드 만들기
           </Button>
@@ -967,22 +1048,23 @@ function WorksheetEditor({
           <Input
             value={title}
             onChange={(e) => onChange({ title: e.target.value, sections })}
+            className="bg-secondary/50 border-0"
           />
         </div>
-        <Button onClick={addSection} className="mt-6">
+        <Button onClick={addSection} className="mt-6 gradient-primary text-white">
           <Plus className="mr-2 h-4 w-4" />
           섹션 추가
         </Button>
       </div>
 
       {sections.map((section, sectionIndex) => (
-        <Card key={section.id}>
+        <Card key={section.id} className="border-0 shadow-sm bg-card/80 backdrop-blur-sm">
           <CardHeader>
             <div className="flex items-center justify-between">
               <Input
                 value={section.title}
                 onChange={(e) => updateSection(sectionIndex, { title: e.target.value })}
-                className="font-medium text-lg border-0 p-0 focus-visible:ring-0"
+                className="font-medium text-lg border-0 p-0 focus-visible:ring-0 bg-transparent"
               />
               <Button variant="ghost" size="icon" onClick={() => deleteSection(sectionIndex)}>
                 <Trash2 className="h-4 w-4" />
@@ -992,12 +1074,12 @@ function WorksheetEditor({
               value={section.instructions || ''}
               onChange={(e) => updateSection(sectionIndex, { instructions: e.target.value })}
               placeholder="섹션 안내문..."
-              className="text-sm text-muted-foreground"
+              className="text-sm text-muted-foreground bg-secondary/50 border-0"
             />
           </CardHeader>
           <CardContent className="space-y-4">
             {section.items.map((item, itemIndex) => (
-              <div key={item.id} className="flex gap-2 p-3 bg-gray-50 rounded-lg">
+              <div key={item.id} className="flex gap-2 p-3 bg-secondary/30 rounded-lg">
                 <span className="font-medium">{item.number}.</span>
                 <div className="flex-1 space-y-2">
                   <Textarea
@@ -1006,7 +1088,7 @@ function WorksheetEditor({
                       updateItem(sectionIndex, itemIndex, { content: e.target.value })
                     }
                     placeholder="문제 내용..."
-                    className="min-h-[60px]"
+                    className="min-h-[60px] bg-background/50 border-0"
                   />
 
                   {item.type === 'multiple_choice' && (
@@ -1020,7 +1102,7 @@ function WorksheetEditor({
                             newOptions[optIndex] = e.target.value;
                             updateItem(sectionIndex, itemIndex, { options: newOptions });
                           }}
-                          className="text-sm"
+                          className="text-sm bg-background/50 border-0"
                         />
                       ))}
                     </div>
@@ -1069,9 +1151,9 @@ function WorksheetEditor({
       ))}
 
       {sections.length === 0 && (
-        <Card className="p-8 text-center">
+        <Card className="p-8 text-center border-0 shadow-sm bg-card/80 backdrop-blur-sm">
           <p className="text-muted-foreground mb-4">아직 섹션이 없습니다.</p>
-          <Button onClick={addSection}>
+          <Button onClick={addSection} className="gradient-primary text-white">
             <Plus className="mr-2 h-4 w-4" />
             첫 섹션 만들기
           </Button>

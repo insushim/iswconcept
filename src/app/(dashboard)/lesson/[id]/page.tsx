@@ -523,6 +523,7 @@ function MaterialsSection({
   onMaterialCreated: (material: Material) => void;
 }) {
   const [generating, setGenerating] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
 
   const materialTypes = [
     { type: 'lesson_plan', label: '교수학습 지도안', icon: FileText },
@@ -618,6 +619,68 @@ function MaterialsSection({
     }
   };
 
+  const downloadMaterial = async (type: string) => {
+    setDownloading(type);
+    try {
+      const material = materials.find((m) => m.type === type);
+      const materialContent = material?.content || null;
+
+      const response = await fetch(`/api/download/${type}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lesson,
+          materialContent,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || '다운로드 실패');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+
+      const extensions: Record<string, string> = {
+        lesson_plan: '.docx',
+        teaching_script: '.docx',
+        pptx: '.pptx',
+        worksheet: '.docx',
+      };
+      const names: Record<string, string> = {
+        lesson_plan: '_교수학습지도안',
+        teaching_script: '_수업대본',
+        pptx: '_수업PPT',
+        worksheet: '_학습지',
+      };
+      a.download = `${lesson.title}${names[type] || ''}${extensions[type] || '.docx'}`;
+
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: '다운로드 완료',
+        description: '파일이 다운로드되었습니다.',
+        variant: 'success',
+      });
+    } catch (error) {
+      toast({
+        title: '다운로드 실패',
+        description: error instanceof Error ? error.message : '다운로드 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* 생성 버튼들 */}
@@ -667,6 +730,7 @@ function MaterialsSection({
             worksheet: FileSpreadsheet,
           };
           const Icon = icons[material.type] || FileText;
+          const isDownloading = downloading === material.type;
 
           return (
             <Card key={material.id}>
@@ -689,8 +753,17 @@ function MaterialsSection({
                         <Edit className="h-4 w-4" />
                       </Button>
                     </Link>
-                    <Button variant="outline" size="sm">
-                      <Download className="h-4 w-4" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => downloadMaterial(material.type)}
+                      disabled={downloading !== null}
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </div>
