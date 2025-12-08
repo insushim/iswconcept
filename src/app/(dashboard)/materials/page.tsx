@@ -26,24 +26,35 @@ import {
   Loader2,
   Plus,
   FolderOpen,
-  ChevronRight,
   Sparkles,
-  Filter,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Trash2,
+  GraduationCap,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { getUserLessons } from '@/lib/firebase/firestore';
+import { getUserLessonsList, getLesson, deleteLesson, type UserLessonSummary } from '@/lib/firebase/firestore';
 import { auth } from '@/lib/firebase/config';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { Lesson } from '@/types/lesson';
 
+const ITEMS_PER_PAGE = 15;
+
 export default function MaterialsPage() {
   const router = useRouter();
-  const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [filteredLessons, setFilteredLessons] = useState<Lesson[]>([]);
+  const [lessons, setLessons] = useState<UserLessonSummary[]>([]);
+  const [filteredLessons, setFilteredLessons] = useState<UserLessonSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [gradeFilter, setGradeFilter] = useState<string>('all');
   const [subjectFilter, setSubjectFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // 상세 보기 관련 상태
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -53,7 +64,8 @@ export default function MaterialsPage() {
       }
 
       try {
-        const userLessons = await getUserLessons(user.uid, 30);
+        // 제목만 가져오기 (DB 사용량 최소화)
+        const userLessons = await getUserLessonsList(user.uid, 100);
         setLessons(userLessons);
         setFilteredLessons(userLessons);
       } catch (error) {
@@ -77,8 +89,7 @@ export default function MaterialsPage() {
     if (searchTerm) {
       result = result.filter(
         (lesson) =>
-          lesson.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          lesson.unit_id?.toLowerCase().includes(searchTerm.toLowerCase())
+          lesson.title.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -91,14 +102,68 @@ export default function MaterialsPage() {
     }
 
     setFilteredLessons(result);
+    setCurrentPage(1);
   }, [lessons, searchTerm, gradeFilter, subjectFilter]);
+
+  // 상세 정보 로드 (클릭 시)
+  const handleViewDetail = async (lessonId: string) => {
+    setLoadingDetail(true);
+    try {
+      const lessonData = await getLesson(lessonId);
+      if (lessonData) {
+        setSelectedLesson(lessonData);
+      }
+    } catch (error) {
+      console.error('Error fetching lesson detail:', error);
+      toast({
+        title: '오류',
+        description: '수업 상세 정보를 불러올 수 없습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleDelete = async (lessonId: string, lessonTitle: string) => {
+    const confirmed = window.confirm(`"${lessonTitle}" 수업을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`);
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      await deleteLesson(lessonId);
+
+      // 목록에서 제거
+      setLessons(lessons.filter(l => l.id !== lessonId));
+      setFilteredLessons(filteredLessons.filter(l => l.id !== lessonId));
+
+      // 상세 보기 닫기
+      if (selectedLesson?.id === lessonId) {
+        setSelectedLesson(null);
+      }
+
+      toast({
+        title: '삭제 완료',
+        description: '수업이 삭제되었습니다.',
+        variant: 'success',
+      });
+    } catch (error) {
+      toast({
+        title: '삭제 실패',
+        description: error instanceof Error ? error.message : '삭제 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ko-KR', {
       year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
     });
   };
 
@@ -126,8 +191,13 @@ export default function MaterialsPage() {
     }
   };
 
+  // 페이지네이션
+  const totalPages = Math.ceil(filteredLessons.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const currentLessons = filteredLessons.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -135,12 +205,14 @@ export default function MaterialsPage() {
             <FolderOpen className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">내 수업 목록</h1>
-            <p className="text-muted-foreground">내가 생성한 모든 수업 자료를 관리합니다.</p>
+            <h1 className="text-xl md:text-2xl font-bold">내 수업 목록</h1>
+            <p className="text-muted-foreground text-sm">
+              내가 생성한 수업 자료 ({lessons.length}개)
+            </p>
           </div>
         </div>
         <Link href="/lesson/new">
-          <Button className="gradient-primary text-white shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all">
+          <Button className="gradient-primary text-white shadow-lg shadow-primary/25">
             <Sparkles className="h-4 w-4 mr-2" />
             새 수업 만들기
           </Button>
@@ -150,24 +222,24 @@ export default function MaterialsPage() {
       {/* Filters */}
       <Card className="border-0 shadow-sm bg-card/80 backdrop-blur-sm">
         <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col md:flex-row gap-3">
             <div className="flex-1 relative">
-              <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="수업 제목 또는 단원으로 검색..."
+                placeholder="수업 제목 검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-11 bg-secondary/50 border-0 focus:bg-background focus:ring-2 focus:ring-primary/20"
+                className="pl-9 h-10 bg-secondary/50 border-0"
               />
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <Select value={gradeFilter} onValueChange={setGradeFilter}>
-                <SelectTrigger className="w-full md:w-36 h-11 bg-secondary/50 border-0">
-                  <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectTrigger className="w-28 h-10 bg-secondary/50 border-0">
+                  <GraduationCap className="h-4 w-4 mr-1 text-muted-foreground" />
                   <SelectValue placeholder="학년" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">전체 학년</SelectItem>
+                  <SelectItem value="all">전체</SelectItem>
                   {[1, 2, 3, 4, 5, 6].map((grade) => (
                     <SelectItem key={grade} value={grade.toString()}>
                       {grade}학년
@@ -176,11 +248,11 @@ export default function MaterialsPage() {
                 </SelectContent>
               </Select>
               <Select value={subjectFilter} onValueChange={setSubjectFilter}>
-                <SelectTrigger className="w-full md:w-40 h-11 bg-secondary/50 border-0">
+                <SelectTrigger className="w-28 h-10 bg-secondary/50 border-0">
                   <SelectValue placeholder="과목" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">전체 과목</SelectItem>
+                  <SelectItem value="all">전체</SelectItem>
                   {uniqueSubjects.map((subject) => (
                     <SelectItem key={subject} value={subject}>
                       {subject}
@@ -193,145 +265,255 @@ export default function MaterialsPage() {
         </CardContent>
       </Card>
 
-      {/* Results count */}
-      {!loading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="font-medium">{filteredLessons.length}</span>개의 수업
-          {(searchTerm || gradeFilter !== 'all' || subjectFilter !== 'all') && (
-            <span className="text-xs">
-              (전체 {lessons.length}개 중)
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Lessons List */}
-      {loading ? (
-        <div className="grid gap-4">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="border-0 shadow-sm bg-card/80 backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-xl skeleton" />
-                  <div className="flex-1 space-y-3">
-                    <div className="h-5 w-1/3 skeleton" />
-                    <div className="h-4 w-1/4 skeleton" />
-                    <div className="h-3 w-1/5 skeleton" />
-                  </div>
+      {/* Content Area */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 게시판 목록 */}
+        <div className="lg:col-span-2">
+          <Card className="border-0 shadow-sm bg-card/80 backdrop-blur-sm">
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="p-8 text-center">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                  <p className="text-sm text-muted-foreground mt-2">불러오는 중...</p>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : filteredLessons.length === 0 ? (
-        <Card className="border-0 shadow-sm bg-card/80 backdrop-blur-sm">
-          <CardContent className="p-12 text-center">
-            <div className="w-20 h-20 mx-auto rounded-2xl bg-secondary flex items-center justify-center mb-4">
-              <FileText className="h-10 w-10 text-muted-foreground/30" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">
-              {lessons.length === 0
-                ? '아직 생성된 수업이 없습니다'
-                : '검색 조건에 맞는 수업이 없습니다'}
-            </h3>
-            <p className="text-muted-foreground mb-6">
-              {lessons.length === 0
-                ? 'AI와 함께 첫 번째 수업을 만들어보세요.'
-                : '다른 검색 조건을 시도해보세요.'}
-            </p>
-            {lessons.length === 0 && (
-              <Link href="/lesson/new">
-                <Button className="gradient-primary text-white shadow-lg shadow-primary/25">
-                  <Plus className="h-4 w-4 mr-2" />
-                  첫 수업 만들기
-                </Button>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {filteredLessons.map((lesson) => (
-            <Card key={lesson.id} className="border-0 shadow-sm bg-card/80 backdrop-blur-sm hover:shadow-md transition-all group">
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row md:items-center gap-4">
-                  {/* Icon */}
-                  <div className="flex-shrink-0 w-14 h-14 rounded-xl gradient-primary-soft flex items-center justify-center">
-                    <BookOpen className="h-6 w-6 text-primary" />
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/lesson/${lesson.id}`}
-                      className="text-lg font-semibold hover:text-primary transition-colors line-clamp-1"
-                    >
-                      {lesson.title}
+              ) : filteredLessons.length === 0 ? (
+                <div className="p-12 text-center">
+                  <FileText className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                  <h3 className="font-semibold mb-2">
+                    {lessons.length === 0 ? '아직 생성된 수업이 없습니다' : '검색 결과가 없습니다'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {lessons.length === 0 ? 'AI와 함께 첫 번째 수업을 만들어보세요.' : '다른 검색 조건을 시도해보세요.'}
+                  </p>
+                  {lessons.length === 0 && (
+                    <Link href="/lesson/new">
+                      <Button className="gradient-primary text-white">
+                        <Plus className="h-4 w-4 mr-2" />
+                        첫 수업 만들기
+                      </Button>
                     </Link>
-                    <div className="flex flex-wrap items-center gap-2 mt-2">
-                      <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-medium">
-                        {lesson.grade}학년
-                      </Badge>
-                      <Badge variant="outline" className="bg-secondary text-secondary-foreground">
-                        {lesson.subject_id}
-                      </Badge>
-                      {lesson.unit_id && (
-                        <span className="text-sm text-muted-foreground truncate max-w-[200px]">
-                          {lesson.unit_id}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" />
-                        {lesson.duration}분
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* 테이블 헤더 */}
+                  <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-secondary/50 text-sm font-medium text-muted-foreground border-b">
+                    <div className="col-span-1 text-center">번호</div>
+                    <div className="col-span-5">제목</div>
+                    <div className="col-span-2 text-center">학년/과목</div>
+                    <div className="col-span-2 text-center">상태</div>
+                    <div className="col-span-2 text-center">등록일</div>
+                  </div>
+
+                  {/* 테이블 내용 */}
+                  <div className="divide-y">
+                    {currentLessons.map((lesson, index) => (
+                      <div
+                        key={lesson.id}
+                        className={`grid grid-cols-12 gap-2 px-4 py-3 hover:bg-secondary/30 transition-colors cursor-pointer items-center ${
+                          selectedLesson?.id === lesson.id ? 'bg-primary/5' : ''
+                        }`}
+                        onClick={() => handleViewDetail(lesson.id)}
+                      >
+                        <div className="col-span-1 text-center text-sm text-muted-foreground">
+                          {filteredLessons.length - startIndex - index}
+                        </div>
+                        <div className="col-span-5">
+                          <p className="text-sm font-medium truncate hover:text-primary">
+                            {lesson.title}
+                          </p>
+                        </div>
+                        <div className="col-span-2 text-center">
+                          <Badge variant="outline" className="text-xs">
+                            {lesson.grade}학년 {lesson.subject_id}
+                          </Badge>
+                        </div>
+                        <div className="col-span-2 text-center">
+                          <Badge variant="outline" className={`text-xs ${getStatusStyle(lesson.status)}`}>
+                            {getStatusLabel(lesson.status)}
+                          </Badge>
+                        </div>
+                        <div className="col-span-2 text-center text-xs text-muted-foreground">
+                          {formatDate(lesson.created_at)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 페이지네이션 */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 p-4 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm text-muted-foreground px-2">
+                        {currentPage} / {totalPages}
                       </span>
-                      <span>{formatDate(lesson.created_at)}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-3 md:flex-col md:items-end">
-                    <Badge variant="outline" className={`${getStatusStyle(lesson.status)} border font-medium`}>
-                      {getStatusLabel(lesson.status)}
-                    </Badge>
-                    <div className="flex gap-2">
-                      <Link href={`/lesson/${lesson.id}/edit`}>
-                        <Button variant="outline" size="sm" className="h-9 px-3">
-                          <Edit3 className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                      <Link href={`/lesson/${lesson.id}`}>
-                        <Button variant="outline" size="sm" className="h-9 px-3">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Materials */}
-                <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t">
-                  {[
-                    { icon: FileText, label: '지도안', color: 'text-violet-600 bg-violet-500/10' },
-                    { icon: BookOpen, label: '대본', color: 'text-blue-600 bg-blue-500/10' },
-                    { icon: Presentation, label: 'PPT', color: 'text-orange-600 bg-orange-500/10' },
-                    { icon: FileSpreadsheet, label: '학습지', color: 'text-green-600 bg-green-500/10' },
-                  ].map((item, index) => (
-                    <div
-                      key={index}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${item.color}`}
-                    >
-                      <item.icon className="h-3.5 w-3.5" />
-                      {item.label}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      )}
+
+        {/* 상세 보기 패널 */}
+        <div className="lg:col-span-1">
+          <Card className="border-0 shadow-sm bg-card/80 backdrop-blur-sm sticky top-4">
+            <CardContent className="p-4">
+              {loadingDetail ? (
+                <div className="py-12 text-center">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                  <p className="text-sm text-muted-foreground mt-2">로딩 중...</p>
+                </div>
+              ) : selectedLesson ? (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">{selectedLesson.title}</h3>
+                    {selectedLesson.unit_id && (
+                      <p className="text-sm text-muted-foreground mt-1">{selectedLesson.unit_id}</p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                      {selectedLesson.grade}학년
+                    </Badge>
+                    <Badge variant="outline" className="bg-secondary">
+                      {selectedLesson.subject_id}
+                    </Badge>
+                    <Badge variant="outline" className={getStatusStyle(selectedLesson.status)}>
+                      {getStatusLabel(selectedLesson.status)}
+                    </Badge>
+                  </div>
+
+                  {/* 수업 시간 */}
+                  {selectedLesson.duration && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      {selectedLesson.duration}분 ({selectedLesson.class_period || 1}차시)
+                    </div>
+                  )}
+
+                  {/* 핵심 개념 */}
+                  {selectedLesson.core_concepts && selectedLesson.core_concepts.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">핵심 개념</p>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedLesson.core_concepts.map((concept, i) => (
+                          <span
+                            key={i}
+                            className="text-xs px-2 py-1 bg-violet-500/10 text-violet-600 rounded-md"
+                          >
+                            {concept}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 학습 목표 */}
+                  {selectedLesson.learning_objectives && selectedLesson.learning_objectives.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">학습 목표</p>
+                      <ul className="text-sm space-y-1">
+                        {selectedLesson.learning_objectives.slice(0, 2).map((obj, i) => (
+                          <li key={i} className="text-muted-foreground text-xs">
+                            • {obj}
+                          </li>
+                        ))}
+                        {selectedLesson.learning_objectives.length > 2 && (
+                          <li className="text-xs text-muted-foreground/70">
+                            +{selectedLesson.learning_objectives.length - 2}개 더
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* 자료 현황 */}
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-2">생성 자료</p>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { icon: FileText, label: '지도안', color: 'text-violet-600 bg-violet-500/10' },
+                        { icon: BookOpen, label: '대본', color: 'text-blue-600 bg-blue-500/10' },
+                        { icon: Presentation, label: 'PPT', color: 'text-orange-600 bg-orange-500/10' },
+                        { icon: FileSpreadsheet, label: '학습지', color: 'text-green-600 bg-green-500/10' },
+                      ].map((item, index) => (
+                        <div
+                          key={index}
+                          className={`flex items-center gap-1 px-2 py-1 rounded text-xs ${item.color}`}
+                        >
+                          <item.icon className="h-3 w-3" />
+                          {item.label}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 메타 정보 */}
+                  <div className="text-xs text-muted-foreground pt-2 border-t">
+                    생성일: {formatDate(selectedLesson.created_at)}
+                  </div>
+
+                  {/* 액션 버튼 */}
+                  <div className="flex flex-col gap-2 pt-2">
+                    <div className="flex gap-2">
+                      <Link href={`/lesson/${selectedLesson.id}`} className="flex-1">
+                        <Button variant="outline" size="sm" className="w-full">
+                          <Download className="h-4 w-4 mr-1" />
+                          상세보기
+                        </Button>
+                      </Link>
+                      <Link href={`/lesson/${selectedLesson.id}/edit`} className="flex-1">
+                        <Button size="sm" className="w-full gradient-primary text-white">
+                          <Edit3 className="h-4 w-4 mr-1" />
+                          편집
+                        </Button>
+                      </Link>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-red-500 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => handleDelete(selectedLesson.id, selectedLesson.title)}
+                      disabled={deleting}
+                    >
+                      {deleting ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-1" />
+                      )}
+                      삭제
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-12 text-center">
+                  <Eye className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    목록에서 수업을 선택하면<br />상세 정보가 표시됩니다
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

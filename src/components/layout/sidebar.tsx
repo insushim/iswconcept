@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Plus,
   FileText,
-  History,
   Settings,
   HelpCircle,
   Zap,
@@ -41,12 +40,6 @@ const navigation = [
     href: '/library',
     icon: Users,
     description: '선생님들의 공유 자료',
-  },
-  {
-    name: '생성 히스토리',
-    href: '/history',
-    icon: History,
-    description: 'AI 생성 기록',
   },
   {
     name: '설정',

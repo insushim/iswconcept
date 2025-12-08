@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { onAuthChange } from '@/lib/firebase/auth';
-import { getUserLessons } from '@/lib/firebase/firestore';
+import { getUserLessonsList, type UserLessonSummary } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -25,10 +25,9 @@ import {
   Download,
   ChevronRight,
 } from 'lucide-react';
-import type { Lesson } from '@/types/lesson';
 
 export default function DashboardPage() {
-  const [recentLessons, setRecentLessons] = useState<Lesson[]>([]);
+  const [recentLessons, setRecentLessons] = useState<UserLessonSummary[]>([]);
   const [stats, setStats] = useState({
     totalLessons: 0,
     thisMonth: 0,
@@ -42,8 +41,8 @@ export default function DashboardPage() {
       if (user) {
         setUserName(user.displayName || '');
         try {
-          // 한 번의 쿼리로 모든 데이터를 가져옴 (최적화)
-          const allLessons = await getUserLessons(user.uid, 100);
+          // 간소화된 목록만 가져옴 (DB 사용량 최소화)
+          const allLessons = await getUserLessonsList(user.uid, 100);
           setRecentLessons(allLessons.slice(0, 5));
 
           const thisMonth = new Date();

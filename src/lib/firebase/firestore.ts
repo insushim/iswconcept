@@ -85,7 +85,50 @@ export async function getLesson(lessonId: string) {
   }
 }
 
-// 사용자의 모든 수업 조회
+// 사용자의 수업 목록 조회 (제목만 - DB 사용량 최소화)
+export interface UserLessonSummary {
+  id: string;
+  title: string;
+  grade: number;
+  subject_id: string;
+  status: string;
+  created_at: string;
+}
+
+export async function getUserLessonsList(userId: string, limitCount: number = 50): Promise<UserLessonSummary[]> {
+  console.log('[getUserLessonsList] 시작 - userId:', userId);
+
+  try {
+    const q = query(
+      collection(db, 'lessons'),
+      where('user_id', '==', userId),
+      limit(limitCount)
+    );
+
+    const querySnapshot = await getDocs(q);
+    console.log('[getUserLessonsList] 조회 완료 - 개수:', querySnapshot.docs.length);
+
+    const lessons = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title,
+        grade: data.grade,
+        subject_id: data.subject_id,
+        status: data.status,
+        created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+      } as UserLessonSummary;
+    });
+
+    lessons.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return lessons;
+  } catch (error) {
+    console.error('[getUserLessonsList] 실패:', error);
+    return [];
+  }
+}
+
+// 사용자의 모든 수업 조회 (전체 데이터)
 export async function getUserLessons(userId: string, limitCount: number = 50) {
   console.log('[getUserLessons] 시작 - userId:', userId);
 
@@ -117,7 +160,50 @@ export async function getUserLessons(userId: string, limitCount: number = 50) {
   }
 }
 
-// 공개 수업 조회 (자료실)
+// 공개 수업 목록 조회 (제목만 - DB 사용량 최소화)
+export interface PublicLessonSummary {
+  id: string;
+  title: string;
+  grade: number;
+  subject_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export async function getPublicLessonsList(limitCount: number = 50): Promise<PublicLessonSummary[]> {
+  console.log('[getPublicLessonsList] 시작');
+
+  try {
+    const q = query(
+      collection(db, 'lessons'),
+      where('is_public', '==', true),
+      limit(limitCount)
+    );
+
+    const querySnapshot = await getDocs(q);
+    console.log('[getPublicLessonsList] 조회 완료 - 개수:', querySnapshot.docs.length);
+
+    const lessons = querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title,
+        grade: data.grade,
+        subject_id: data.subject_id,
+        user_id: data.user_id,
+        created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
+      } as PublicLessonSummary;
+    });
+
+    lessons.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return lessons;
+  } catch (error) {
+    console.error('[getPublicLessonsList] 실패:', error);
+    return [];
+  }
+}
+
+// 공개 수업 조회 (자료실) - 전체 데이터
 export async function getPublicLessons(limitCount: number = 50) {
   console.log('[getPublicLessons] 시작');
 
@@ -340,59 +426,3 @@ export async function getMaterial(materialId: string) {
   return null;
 }
 
-// ========== Generation History ==========
-
-// 생성 기록 추가
-export async function addGenerationHistory(
-  lessonId: string,
-  type: string,
-  status: 'success' | 'error',
-  tokensUsed: number = 0
-) {
-  await addDoc(collection(db, 'generation_history'), {
-    lesson_id: lessonId,
-    type,
-    status,
-    tokens_used: tokensUsed,
-    created_at: Timestamp.now(),
-  });
-}
-
-// 생성 기록 조회 (간소화된 버전 - 수업 10개만 조회)
-export async function getGenerationHistory(userId: string, limitCount: number = 20) {
-  try {
-    // 최근 수업 10개만 가져옴 (성능 최적화)
-    const lessons = await getUserLessons(userId, 10);
-    const lessonIds = lessons.map((l) => l.id);
-
-    if (lessonIds.length === 0) {
-      return [];
-    }
-
-    // 단일 쿼리 (orderBy 제거하여 인덱스 불필요)
-    const q = query(
-      collection(db, 'generation_history'),
-      where('lesson_id', 'in', lessonIds),
-      limit(limitCount)
-    );
-
-    const querySnapshot = await getDocs(q);
-    const results = querySnapshot.docs.map((doc) => {
-      const data = doc.data();
-      const lesson = lessons.find((l) => l.id === data.lesson_id);
-      return {
-        id: doc.id,
-        ...data,
-        created_at: data.created_at?.toDate?.()?.toISOString() || new Date().toISOString(),
-        lesson: lesson ? { title: lesson.title } : null,
-      };
-    });
-
-    // 클라이언트에서 정렬
-    results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return results;
-  } catch (error) {
-    console.error('[getGenerationHistory] 실패:', error);
-    return [];
-  }
-}
