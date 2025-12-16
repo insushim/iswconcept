@@ -19,10 +19,12 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { PUBLISHERS, GRADES, getSubjectsForGrade, getUnitsForSubjectAndGrade, getPublishersForSubjectAndGrade } from '@/lib/constants/curriculum-data';
 import { getPeriodsForUnitName } from '@/lib/constants/all-periods';
-import { Loader2, Sparkles, CheckCircle, Circle, BookOpen } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle, Circle, BookOpen, Lightbulb, ChevronDown, ChevronUp } from 'lucide-react';
 import { useLessonStore } from '@/stores/lesson-store';
 import { auth } from '@/lib/firebase/config';
 import { createLesson, createMaterial } from '@/lib/firebase/firestore';
+import type { ConceptLens } from '@/lib/constants/concept-lens';
+import { CONCEPT_LENSES, CONCEPT_LENS_CATEGORIES } from '@/lib/constants/concept-lens';
 
 export function LessonForm() {
   const router = useRouter();
@@ -49,6 +51,12 @@ export function LessonForm() {
     objectives: string[];
     achievementStandards: string[];
   } | null>(null);
+
+  // 개념 렌즈 관련 상태
+  const [recommendedLenses, setRecommendedLenses] = useState<ConceptLens[]>([]);
+  const [selectedLens, setSelectedLens] = useState<ConceptLens | null>(null);
+  const [isLoadingLenses, setIsLoadingLenses] = useState(false);
+  const [showAllLenses, setShowAllLenses] = useState(false);
 
   const subjects = formData.grade ? getSubjectsForGrade(parseInt(formData.grade)) : [];
   const units = formData.subject && formData.grade ? getUnitsForSubjectAndGrade(formData.subject, formData.grade) : [];
@@ -107,6 +115,40 @@ export function LessonForm() {
       setUnitInfo(null);
     }
   }, [formData.unit, formData.subject, formData.grade]);
+
+  // 단원 선택 시 개념 렌즈 추천 가져오기
+  useEffect(() => {
+    const fetchRecommendedLenses = async () => {
+      if (formData.unit && formData.subject) {
+        setIsLoadingLenses(true);
+        setSelectedLens(null);
+        try {
+          const response = await fetch('/api/lesson/suggest-concept-lens', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subject: formData.subject,
+              unitName: formData.unit,
+              objectives: formData.objectives?.split('\n').filter((o: string) => o.trim()) || [],
+            }),
+          });
+          const data = await response.json();
+          if (data.success) {
+            setRecommendedLenses(data.recommendedLenses);
+          }
+        } catch (error) {
+          console.error('개념 렌즈 추천 가져오기 실패:', error);
+        } finally {
+          setIsLoadingLenses(false);
+        }
+      } else {
+        setRecommendedLenses([]);
+        setSelectedLens(null);
+      }
+    };
+
+    fetchRecommendedLenses();
+  }, [formData.unit, formData.subject]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,6 +223,13 @@ export function LessonForm() {
           achievementStandards: formData.achievementStandards
             ? formData.achievementStandards.split('\n').filter((s) => s.trim())
             : undefined,
+          // 선택된 개념 렌즈 전달
+          conceptLens: selectedLens ? {
+            id: selectedLens.id,
+            name: selectedLens.name,
+            nameEn: selectedLens.nameEn,
+            description: selectedLens.description,
+          } : undefined,
         }),
       });
 
@@ -514,6 +563,158 @@ export function LessonForm() {
           )}
         </CardContent>
       </Card>
+
+      {/* 개념 렌즈 선택 */}
+      {formData.unit && (
+        <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Lightbulb className="h-5 w-5 text-amber-600" />
+              <span>개념 렌즈 선택</span>
+              {selectedLens && (
+                <Badge className="ml-2 bg-amber-500 text-white">
+                  {selectedLens.name} 선택됨
+                </Badge>
+              )}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              개념 렌즈는 단원을 관통하는 핵심 추상 개념입니다. AI가 추천한 개념 렌즈 중 하나를 선택하거나, 다른 개념 렌즈를 직접 선택하세요.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* 추천 개념 렌즈 */}
+            {isLoadingLenses ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-amber-600 mr-2" />
+                <span className="text-sm text-amber-700">개념 렌즈 추천 중...</span>
+              </div>
+            ) : recommendedLenses.length > 0 ? (
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium text-amber-800 flex items-center gap-1">
+                  <Sparkles className="h-4 w-4" />
+                  이 단원에 추천하는 개념 렌즈
+                </h4>
+                <div className="grid gap-3">
+                  {recommendedLenses.map((lens, index) => (
+                    <button
+                      key={lens.id}
+                      type="button"
+                      onClick={() => setSelectedLens(lens)}
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        selectedLens?.id === lens.id
+                          ? 'border-amber-500 bg-amber-100 shadow-md'
+                          : 'border-amber-200 bg-white hover:border-amber-400 hover:bg-amber-50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300">
+                              추천 {index + 1}
+                            </Badge>
+                            <span className="font-semibold text-amber-900">
+                              {lens.name}
+                            </span>
+                            <span className="text-xs text-amber-600">
+                              ({lens.nameEn})
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm text-gray-600">
+                            {lens.description}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {lens.examples.slice(0, 3).map((example, i) => (
+                              <span key={i} className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                {example}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {selectedLens?.id === lens.id && (
+                          <CheckCircle className="h-5 w-5 text-amber-600 flex-shrink-0 ml-2" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {/* 다른 개념 렌즈 보기 토글 */}
+            <button
+              type="button"
+              onClick={() => setShowAllLenses(!showAllLenses)}
+              className="flex items-center gap-1 text-sm text-amber-700 hover:text-amber-900 transition-colors"
+            >
+              {showAllLenses ? (
+                <>
+                  <ChevronUp className="h-4 w-4" />
+                  다른 개념 렌즈 접기
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4" />
+                  다른 개념 렌즈 더 보기
+                </>
+              )}
+            </button>
+
+            {/* 전체 개념 렌즈 목록 */}
+            {showAllLenses && (
+              <div className="space-y-4 pt-2 border-t border-amber-200">
+                {CONCEPT_LENS_CATEGORIES.map((category) => (
+                  <div key={category.id} className="space-y-2">
+                    <h5 className="text-sm font-medium text-gray-700">
+                      {category.name}
+                    </h5>
+                    <p className="text-xs text-gray-500 mb-2">{category.description}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {CONCEPT_LENSES
+                        .filter((lens) => lens.category === category.id)
+                        .map((lens) => (
+                          <button
+                            key={lens.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedLens(lens);
+                              setShowAllLenses(false);
+                            }}
+                            className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                              selectedLens?.id === lens.id
+                                ? 'bg-amber-500 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-amber-100 hover:text-amber-800'
+                            }`}
+                          >
+                            {lens.name}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 선택된 개념 렌즈 상세 정보 */}
+            {selectedLens && (
+              <div className="mt-4 p-4 bg-white rounded-lg border border-amber-300">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="h-4 w-4 text-amber-600" />
+                  <span className="font-medium text-amber-900">선택된 개념 렌즈</span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-lg font-semibold text-gray-900">
+                    {selectedLens.name} ({selectedLens.nameEn})
+                  </p>
+                  <p className="text-sm text-gray-600">{selectedLens.description}</p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    적용 예시: {selectedLens.examples.join(', ')}
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* 학습 목표 */}
       <Card>

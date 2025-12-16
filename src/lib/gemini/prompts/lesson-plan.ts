@@ -38,6 +38,17 @@ Rachel French와 Carla Marshall의 개념기반 탐구학습 모형을 기반으
 - **총 차시**: ${totalPeriods}차시
 - **학습목표**: ${input.objectives.join(', ')}
 - **성취기준**: ${input.achievementStandards?.join(', ') || '미지정'}
+${input.conceptLens ? `
+## 교사가 선택한 개념 렌즈 (매우 중요!)
+- **개념 렌즈**: ${input.conceptLens.name} (${input.conceptLens.nameEn})
+- **의미**: ${input.conceptLens.description}
+
+⚠️ 중요: 교사가 위의 개념 렌즈를 선택했습니다. 수업 설계 시 반드시 이 개념 렌즈를 중심으로 설계하세요.
+- lessonOverview.coreConcepts의 첫 번째 항목에 "${input.conceptLens.name}"을 넣으세요.
+- unitOverview.conceptLens에 "${input.conceptLens.name}"을 넣으세요.
+- 모든 일반화(bigIdeas, generalizations)를 "${input.conceptLens.name}" 개념과 연결하여 작성하세요.
+- 탐구질문도 "${input.conceptLens.name}" 관점에서 작성하세요.
+` : ''}
 
 ## 차시 배분 가이드 (${totalPeriods}차시 기준)
 - 관계맺기: ${periodDistribution.engage}차시

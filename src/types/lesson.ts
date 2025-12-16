@@ -297,6 +297,13 @@ export interface LessonInput {
   duration: number;
   objectives: string[];
   achievementStandards?: string[];
+  // 선택된 개념 렌즈
+  conceptLens?: {
+    id: string;
+    name: string;
+    nameEn: string;
+    description: string;
+  };
 }
 
 export interface GeneratedLesson {
