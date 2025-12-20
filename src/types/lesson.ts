@@ -304,6 +304,32 @@ export interface LessonInput {
     nameEn: string;
     description: string;
   };
+  // 선택된 일반화 문장들
+  selectedGeneralizations?: {
+    id: string;
+    template: string;
+    customText?: string; // 교사가 수정한 경우
+  }[];
+  // 선택된 GRASPS 요소들
+  selectedGRASPS?: {
+    role?: {
+      id: string;
+      name: string;
+      customName?: string;
+    };
+    audience?: {
+      id: string;
+      name: string;
+      customName?: string;
+    };
+    product?: {
+      id: string;
+      name: string;
+      customName?: string;
+    };
+    situation?: string; // 교사가 직접 입력
+    goal?: string; // 교사가 직접 입력
+  };
 }
 
 export interface GeneratedLesson {

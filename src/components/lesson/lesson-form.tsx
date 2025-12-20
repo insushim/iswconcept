@@ -25,6 +25,17 @@ import { auth } from '@/lib/firebase/config';
 import { createLesson, createMaterial } from '@/lib/firebase/firestore';
 import type { ConceptLens } from '@/lib/constants/concept-lens';
 import { CONCEPT_LENSES, CONCEPT_LENS_CATEGORIES } from '@/lib/constants/concept-lens';
+import { getGeneralizationsByLens, type GeneralizationTemplate } from '@/lib/constants/generalizations';
+import {
+  GRASPS_ROLES,
+  GRASPS_AUDIENCES,
+  GRASPS_PRODUCTS,
+  getRolesBySubject,
+  getProductsBySubject,
+  type GRASPSRole,
+  type GRASPSAudience,
+  type GRASPSProduct,
+} from '@/lib/constants/grasps-templates';
 
 export function LessonForm() {
   const router = useRouter();
@@ -57,6 +68,20 @@ export function LessonForm() {
   const [selectedLens, setSelectedLens] = useState<ConceptLens | null>(null);
   const [isLoadingLenses, setIsLoadingLenses] = useState(false);
   const [showAllLenses, setShowAllLenses] = useState(false);
+
+  // 일반화 문장 관련 상태
+  const [availableGeneralizations, setAvailableGeneralizations] = useState<GeneralizationTemplate[]>([]);
+  const [selectedGeneralizations, setSelectedGeneralizations] = useState<{id: string; template: string; customText?: string}[]>([]);
+  const [customGeneralization, setCustomGeneralization] = useState('');
+
+  // GRASPS 관련 상태
+  const [selectedRole, setSelectedRole] = useState<GRASPSRole | null>(null);
+  const [selectedAudience, setSelectedAudience] = useState<GRASPSAudience | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<GRASPSProduct | null>(null);
+  const [graspsSituation, setGraspsSituation] = useState('');
+  const [graspsGoal, setGraspsGoal] = useState('');
+  const [showAllRoles, setShowAllRoles] = useState(false);
+  const [showAllProducts, setShowAllProducts] = useState(false);
 
   const subjects = formData.grade ? getSubjectsForGrade(parseInt(formData.grade)) : [];
   const units = formData.subject && formData.grade ? getUnitsForSubjectAndGrade(formData.subject, formData.grade) : [];
@@ -122,6 +147,8 @@ export function LessonForm() {
       if (formData.unit && formData.subject) {
         setIsLoadingLenses(true);
         setSelectedLens(null);
+        setSelectedGeneralizations([]);
+        setAvailableGeneralizations([]);
         try {
           const response = await fetch('/api/lesson/suggest-concept-lens', {
             method: 'POST',
@@ -144,11 +171,25 @@ export function LessonForm() {
       } else {
         setRecommendedLenses([]);
         setSelectedLens(null);
+        setSelectedGeneralizations([]);
+        setAvailableGeneralizations([]);
       }
     };
 
     fetchRecommendedLenses();
   }, [formData.unit, formData.subject]);
+
+  // 개념 렌즈 선택 시 일반화 문장 템플릿 로드
+  useEffect(() => {
+    if (selectedLens) {
+      const generalizations = getGeneralizationsByLens(selectedLens.id);
+      setAvailableGeneralizations(generalizations);
+      setSelectedGeneralizations([]);
+    } else {
+      setAvailableGeneralizations([]);
+      setSelectedGeneralizations([]);
+    }
+  }, [selectedLens]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,6 +270,16 @@ export function LessonForm() {
             name: selectedLens.name,
             nameEn: selectedLens.nameEn,
             description: selectedLens.description,
+          } : undefined,
+          // 선택된 일반화 문장 전달
+          selectedGeneralizations: selectedGeneralizations.length > 0 ? selectedGeneralizations : undefined,
+          // 선택된 GRASPS 요소 전달
+          selectedGRASPS: (selectedRole || selectedAudience || selectedProduct || graspsSituation || graspsGoal) ? {
+            role: selectedRole ? { id: selectedRole.id, name: selectedRole.name } : undefined,
+            audience: selectedAudience ? { id: selectedAudience.id, name: selectedAudience.name } : undefined,
+            product: selectedProduct ? { id: selectedProduct.id, name: selectedProduct.name } : undefined,
+            situation: graspsSituation || undefined,
+            goal: graspsGoal || undefined,
           } : undefined,
         }),
       });
@@ -710,6 +761,258 @@ export function LessonForm() {
                     적용 예시: {selectedLens.examples.join(', ')}
                   </p>
                 </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 일반화 문장 선택 */}
+      {selectedLens && availableGeneralizations.length > 0 && (
+        <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <BookOpen className="h-5 w-5 text-purple-600" />
+              <span>일반화 문장 선택</span>
+              {selectedGeneralizations.length > 0 && (
+                <Badge className="ml-2 bg-purple-500 text-white">
+                  {selectedGeneralizations.length}개 선택됨
+                </Badge>
+              )}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              &quot;{selectedLens.name}&quot; 개념 렌즈와 관련된 일반화 문장입니다. 단원에 맞는 것을 선택하거나 직접 입력하세요.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* 추천 일반화 문장 목록 */}
+            <div className="space-y-2">
+              {availableGeneralizations.map((gen) => {
+                const isSelected = selectedGeneralizations.some(s => s.id === gen.id);
+                return (
+                  <button
+                    key={gen.id}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedGeneralizations(prev => prev.filter(s => s.id !== gen.id));
+                      } else {
+                        setSelectedGeneralizations(prev => [...prev, { id: gen.id, template: gen.template }]);
+                      }
+                    }}
+                    className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+                      isSelected
+                        ? 'border-purple-500 bg-purple-100'
+                        : 'border-purple-200 bg-white hover:border-purple-400 hover:bg-purple-50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{gen.template}</p>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {gen.examples.slice(0, 2).map((ex, i) => (
+                            <span key={i} className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">
+                              예: {ex}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <CheckCircle className="h-5 w-5 text-purple-600 flex-shrink-0 ml-2" />
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 직접 입력 */}
+            <div className="space-y-2">
+              <Label className="text-sm text-purple-800">또는 직접 입력하기</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="학생의 생활과 연결된 일반화 문장을 입력하세요"
+                  value={customGeneralization}
+                  onChange={(e) => setCustomGeneralization(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (customGeneralization.trim()) {
+                      const customId = `custom-${Date.now()}`;
+                      setSelectedGeneralizations(prev => [...prev, {
+                        id: customId,
+                        template: customGeneralization.trim(),
+                        customText: customGeneralization.trim()
+                      }]);
+                      setCustomGeneralization('');
+                    }
+                  }}
+                  disabled={!customGeneralization.trim()}
+                >
+                  추가
+                </Button>
+              </div>
+            </div>
+
+            {/* 선택된 일반화 문장 표시 */}
+            {selectedGeneralizations.length > 0 && (
+              <div className="mt-4 p-4 bg-white rounded-lg border border-purple-300">
+                <p className="text-sm font-medium text-purple-800 mb-2">선택된 일반화 문장:</p>
+                <ul className="space-y-1">
+                  {selectedGeneralizations.map((gen, index) => (
+                    <li key={gen.id} className="flex items-center justify-between text-sm">
+                      <span>{index + 1}. {gen.customText || gen.template}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedGeneralizations(prev => prev.filter(s => s.id !== gen.id))}
+                        className="text-red-500 hover:text-red-700 text-xs"
+                      >
+                        삭제
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* GRASPS 수행과제 설정 */}
+      {selectedLens && (
+        <Card className="border-cyan-200 bg-gradient-to-r from-cyan-50 to-teal-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Sparkles className="h-5 w-5 text-cyan-600" />
+              <span>GRASPS 수행과제 설정</span>
+              {(selectedRole || selectedAudience || selectedProduct) && (
+                <Badge className="ml-2 bg-cyan-500 text-white">설정됨</Badge>
+              )}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              수행과제의 역할, 청중, 산출물을 선택하세요. 선택하지 않으면 AI가 자동으로 설정합니다.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* 역할 (Role) 선택 */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-cyan-800">🎭 역할 (Role) - 학생이 수행할 역할</Label>
+              <div className="flex flex-wrap gap-2">
+                {(showAllRoles ? GRASPS_ROLES : getRolesBySubject(formData.subject).slice(0, 8)).map((role) => (
+                  <button
+                    key={role.id}
+                    type="button"
+                    onClick={() => setSelectedRole(selectedRole?.id === role.id ? null : role)}
+                    className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                      selectedRole?.id === role.id
+                        ? 'bg-cyan-500 text-white'
+                        : 'bg-white border border-cyan-300 text-gray-700 hover:bg-cyan-100'
+                    }`}
+                  >
+                    {role.name}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllRoles(!showAllRoles)}
+                className="text-xs text-cyan-600 hover:text-cyan-800"
+              >
+                {showAllRoles ? '접기' : '더 많은 역할 보기...'}
+              </button>
+              {selectedRole && (
+                <p className="text-xs text-gray-600 bg-white p-2 rounded">{selectedRole.description}</p>
+              )}
+            </div>
+
+            {/* 청중 (Audience) 선택 */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-cyan-800">👥 청중 (Audience) - 결과물을 보여줄 대상</Label>
+              <div className="flex flex-wrap gap-2">
+                {GRASPS_AUDIENCES.slice(0, 10).map((audience) => (
+                  <button
+                    key={audience.id}
+                    type="button"
+                    onClick={() => setSelectedAudience(selectedAudience?.id === audience.id ? null : audience)}
+                    className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                      selectedAudience?.id === audience.id
+                        ? 'bg-cyan-500 text-white'
+                        : 'bg-white border border-cyan-300 text-gray-700 hover:bg-cyan-100'
+                    }`}
+                  >
+                    {audience.name}
+                  </button>
+                ))}
+              </div>
+              {selectedAudience && (
+                <p className="text-xs text-gray-600 bg-white p-2 rounded">{selectedAudience.description}</p>
+              )}
+            </div>
+
+            {/* 산출물 (Product) 선택 */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-cyan-800">📦 산출물 (Product) - 학생이 만들어낼 결과물</Label>
+              <div className="flex flex-wrap gap-2">
+                {(showAllProducts ? GRASPS_PRODUCTS : getProductsBySubject(formData.subject).slice(0, 10)).map((product) => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() => setSelectedProduct(selectedProduct?.id === product.id ? null : product)}
+                    className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                      selectedProduct?.id === product.id
+                        ? 'bg-cyan-500 text-white'
+                        : 'bg-white border border-cyan-300 text-gray-700 hover:bg-cyan-100'
+                    }`}
+                  >
+                    {product.name}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllProducts(!showAllProducts)}
+                className="text-xs text-cyan-600 hover:text-cyan-800"
+              >
+                {showAllProducts ? '접기' : '더 많은 산출물 보기...'}
+              </button>
+              {selectedProduct && (
+                <p className="text-xs text-gray-600 bg-white p-2 rounded">{selectedProduct.description}</p>
+              )}
+            </div>
+
+            {/* 상황 및 목표 직접 입력 */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-cyan-800">📍 상황 (Situation) - 선택 사항</Label>
+                <Input
+                  placeholder="예: 우리 학교에서 환경 캠페인을 준비하고 있습니다."
+                  value={graspsSituation}
+                  onChange={(e) => setGraspsSituation(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-cyan-800">🎯 목표 (Goal) - 선택 사항</Label>
+                <Input
+                  placeholder="예: 환경 보호의 중요성을 알리고 실천 방법을 제안한다."
+                  value={graspsGoal}
+                  onChange={(e) => setGraspsGoal(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* GRASPS 요약 */}
+            {(selectedRole || selectedAudience || selectedProduct) && (
+              <div className="p-4 bg-white rounded-lg border border-cyan-300">
+                <p className="text-sm font-medium text-cyan-800 mb-2">수행과제 미리보기:</p>
+                <p className="text-sm text-gray-700">
+                  {selectedRole && `여러분은 "${selectedRole.name}"입니다. `}
+                  {selectedAudience && `"${selectedAudience.name}"에게 `}
+                  {graspsGoal && `${graspsGoal} `}
+                  {selectedProduct && `"${selectedProduct.name}"을(를) 만들어야 합니다.`}
+                </p>
               </div>
             )}
           </CardContent>

@@ -49,6 +49,24 @@ ${input.conceptLens ? `
 - 모든 일반화(bigIdeas, generalizations)를 "${input.conceptLens.name}" 개념과 연결하여 작성하세요.
 - 탐구질문도 "${input.conceptLens.name}" 관점에서 작성하세요.
 ` : ''}
+${input.selectedGeneralizations && input.selectedGeneralizations.length > 0 ? `
+## 교사가 선택한 일반화 문장 (반드시 사용!)
+교사가 다음 일반화 문장을 선택했습니다. 이 문장들을 bigIdeas와 unitOverview.generalizations에 **반드시 포함**하세요:
+${input.selectedGeneralizations.map((g, i) => `${i + 1}. "${g.customText || g.template}"`).join('\n')}
+
+⚠️ 위 일반화 문장들을 그대로 사용하거나, 단원 맥락에 맞게 약간 수정하여 사용하세요.
+` : ''}
+${input.selectedGRASPS ? `
+## 교사가 선택한 GRASPS 수행과제 요소 (반드시 반영!)
+교사가 수행과제의 요소를 다음과 같이 선택했습니다. unitAssessment.graspsTask에 반드시 반영하세요:
+${input.selectedGRASPS.role ? `- **역할 (Role)**: ${input.selectedGRASPS.role.name}` : ''}
+${input.selectedGRASPS.audience ? `- **청중 (Audience)**: ${input.selectedGRASPS.audience.name}` : ''}
+${input.selectedGRASPS.product ? `- **산출물 (Product)**: ${input.selectedGRASPS.product.name}` : ''}
+${input.selectedGRASPS.situation ? `- **상황 (Situation)**: ${input.selectedGRASPS.situation}` : ''}
+${input.selectedGRASPS.goal ? `- **목표 (Goal)**: ${input.selectedGRASPS.goal}` : ''}
+
+⚠️ 교사가 선택한 요소들을 graspsTask에 반드시 그대로 사용하세요. 선택되지 않은 요소만 AI가 생성하세요.
+` : ''}
 
 ## 차시 배분 가이드 (${totalPeriods}차시 기준)
 - 관계맺기: ${periodDistribution.engage}차시
