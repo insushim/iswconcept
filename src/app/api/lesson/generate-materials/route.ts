@@ -3,7 +3,7 @@ import { getGeminiClient } from '@/lib/gemini/client';
 import {
   generateTeachingScriptPrompt,
   generatePPTXContentPrompt,
-  generateWorksheetPrompt,
+  generateEnhancedWorksheetPrompt,
   generateLessonPlanDocxPrompt,
 } from '@/lib/gemini/prompts';
 import type { GeneratedLesson } from '@/types/lesson';
@@ -81,8 +81,8 @@ export async function POST(req: NextRequest) {
         break;
 
       case 'worksheet':
-        console.log('[Generate Materials] 학습지 생성 중...');
-        const worksheetPrompt = generateWorksheetPrompt(lessonDesign, grade, subject);
+        console.log('[Generate Materials] 학습지 생성 중 (사고루틴+협동학습 통합)...');
+        const worksheetPrompt = generateEnhancedWorksheetPrompt(lessonDesign, grade, subject);
         content = await gemini.generateJSON<WorksheetContent>(worksheetPrompt);
         console.log('[Generate Materials] 학습지 생성 완료');
         break;

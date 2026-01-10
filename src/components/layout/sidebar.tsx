@@ -12,6 +12,7 @@ import {
   Zap,
   X,
   Users,
+  Database,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -40,6 +41,12 @@ const navigation = [
     href: '/library',
     icon: Users,
     description: '선생님들의 공유 자료',
+  },
+  {
+    name: '교육 DB',
+    href: '/database',
+    icon: Database,
+    description: '55개국 프레임워크/이론',
   },
   {
     name: '설정',

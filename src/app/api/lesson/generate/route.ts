@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getGeminiClient } from '@/lib/gemini/client';
 import {
-  generateLessonPlanPrompt,
+  generateEnhancedLessonPlanPrompt,
 } from '@/lib/gemini/prompts';
 import type { LessonInput, GeneratedLesson } from '@/types/lesson';
 
@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
 
     const gemini = getGeminiClient();
 
-    // 수업 설계만 생성 (시간 단축)
-    const lessonPlanPrompt = generateLessonPlanPrompt(input);
+    // 세계 최고 수준의 개념기반탐구수업 설계 생성 (55개국 프레임워크 + 40+ 교육이론 통합)
+    const lessonPlanPrompt = generateEnhancedLessonPlanPrompt(input);
     const lessonDesign = await gemini.generateJSON<GeneratedLesson>(lessonPlanPrompt);
 
     const generationTime = Date.now() - startTime;
