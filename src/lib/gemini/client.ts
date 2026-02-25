@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 
 // 캐싱을 위한 메모리 저장소 (비용 최적화)
 const responseCache = new Map<string, { data: string; timestamp: number }>();
@@ -9,15 +9,15 @@ export class GeminiClient {
   private apiKey: string;
 
   constructor() {
-    this.apiKey = process.env.GEMINI_API_KEY || '';
+    this.apiKey = process.env.GEMINI_API_KEY || "";
 
     if (!this.apiKey) {
-      throw new Error('GEMINI_API_KEY가 설정되지 않았습니다.');
+      throw new Error("GEMINI_API_KEY가 설정되지 않았습니다.");
     }
 
     const genAI = new GoogleGenerativeAI(this.apiKey);
     this.model = genAI.getGenerativeModel({
-      model: 'gemini-3-flash-preview',
+      model: "gemini-3-flash-preview",
       generationConfig: {
         temperature: 0.7,
         topP: 0.95,
@@ -33,7 +33,7 @@ export class GeminiClient {
     let hash = 0;
     for (let i = 0; i < prompt.length; i++) {
       const char = prompt.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash;
     }
     return `gemini_${hash}`;
@@ -66,7 +66,7 @@ export class GeminiClient {
       const cacheKey = this.generateCacheKey(prompt);
       const cached = this.getFromCache(cacheKey);
       if (cached) {
-        console.log('Using cached response');
+        console.log("Using cached response");
         return cached;
       }
     }
@@ -84,8 +84,8 @@ export class GeminiClient {
 
       return text;
     } catch (error) {
-      console.error('Gemini API Error:', error);
-      throw new Error('AI 응답 생성 중 오류가 발생했습니다.');
+      console.error("Gemini API Error:", error);
+      throw new Error("AI 응답 생성 중 오류가 발생했습니다.");
     }
   }
 
@@ -103,8 +103,8 @@ export class GeminiClient {
     }
 
     // JSON이 아닌 텍스트가 앞뒤에 있을 수 있으므로 { 또는 [로 시작하는 부분 찾기
-    const jsonStartBrace = jsonStr.indexOf('{');
-    const jsonStartBracket = jsonStr.indexOf('[');
+    const jsonStartBrace = jsonStr.indexOf("{");
+    const jsonStartBracket = jsonStr.indexOf("[");
     let jsonStart = -1;
 
     if (jsonStartBrace !== -1 && jsonStartBracket !== -1) {
@@ -120,8 +120,8 @@ export class GeminiClient {
     }
 
     // 마지막 } 또는 ] 이후의 텍스트 제거
-    const lastBrace = jsonStr.lastIndexOf('}');
-    const lastBracket = jsonStr.lastIndexOf(']');
+    const lastBrace = jsonStr.lastIndexOf("}");
+    const lastBracket = jsonStr.lastIndexOf("]");
     const jsonEnd = Math.max(lastBrace, lastBracket);
 
     if (jsonEnd !== -1 && jsonEnd < jsonStr.length - 1) {
@@ -130,15 +130,15 @@ export class GeminiClient {
 
     // 일반적인 JSON 오류 수정
     // 1. 제어 문자 제거 (줄바꿈 제외)
-    jsonStr = jsonStr.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/g, '');
+    jsonStr = jsonStr.replace(/[\x00-\x09\x0B\x0C\x0E-\x1F]/g, "");
 
     // 2. 잘못된 이스케이프 시퀀스 수정
-    jsonStr = jsonStr.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
+    jsonStr = jsonStr.replace(/\\(?!["\\/bfnrtu])/g, "\\\\");
 
     try {
       return JSON.parse(jsonStr) as T;
     } catch (firstError) {
-      console.error('First JSON Parse Error:', firstError);
+      console.error("First JSON Parse Error:", firstError);
 
       // 재시도: 더 공격적인 정리
       try {
@@ -146,17 +146,28 @@ export class GeminiClient {
         let cleanedJson = jsonStr;
 
         // 문자열 값 내의 줄바꿈을 \\n으로 변환
-        cleanedJson = cleanedJson.replace(/"([^"]*(?:\\.[^"]*)*)"/g, (match) => {
-          return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
-        });
+        cleanedJson = cleanedJson.replace(
+          /"([^"]*(?:\\.[^"]*)*)"/g,
+          (match) => {
+            return match.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+          },
+        );
 
         return JSON.parse(cleanedJson) as T;
       } catch (secondError) {
-        console.error('Second JSON Parse Error:', secondError);
-        console.error('Raw response length:', response.length);
-        console.error('Raw response (first 1000 chars):', response.substring(0, 1000));
-        console.error('Cleaned JSON (first 1000 chars):', jsonStr.substring(0, 1000));
-        throw new Error('AI 응답을 파싱하는 중 오류가 발생했습니다. 다시 시도해주세요.');
+        console.error("Second JSON Parse Error:", secondError);
+        console.error("Raw response length:", response.length);
+        console.error(
+          "Raw response (first 1000 chars):",
+          response.substring(0, 1000),
+        );
+        console.error(
+          "Cleaned JSON (first 1000 chars):",
+          jsonStr.substring(0, 1000),
+        );
+        throw new Error(
+          "AI 응답을 파싱하는 중 오류가 발생했습니다. 다시 시도해주세요.",
+        );
       }
     }
   }
@@ -171,8 +182,8 @@ export class GeminiClient {
         yield chunkText;
       }
     } catch (error) {
-      console.error('Gemini Stream Error:', error);
-      throw new Error('AI 스트리밍 생성 중 오류가 발생했습니다.');
+      console.error("Gemini Stream Error:", error);
+      throw new Error("AI 스트리밍 생성 중 오류가 발생했습니다.");
     }
   }
 }
